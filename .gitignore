@@ -1,0 +1,5 @@
+/bin/
+/examples/collector/out/
+*.test
+*.out
+.remember/
