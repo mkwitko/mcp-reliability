@@ -1,9 +1,12 @@
+# Local OTel Collector writing newline-delimited OTLP JSON.
+# Override the port/output dir to run two captures side by side:
+#   COLLECTOR_PORT=4319 COLLECTOR_OUT=./out2 docker compose -p col2 -f examples/collector/docker-compose.yml up -d
 services:
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.146.0
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./config.yaml:/etc/otelcol/config.yaml:ro
-      - ./out:/out
+      - ${COLLECTOR_OUT:-./out}:/out
     ports:
-      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:${COLLECTOR_PORT:-4318}:4318"
