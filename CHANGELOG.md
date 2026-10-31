@@ -8,6 +8,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 ### Added
 - `doctor -wire <capture.jsonl>`: wire-format checks MCP-PROP-003 (SEP-414 `_meta.traceparent` MUST be W3C formatted, FAIL) and MCP-PROP-004 (no traceparent on the wire, INFO). Harness flag `-capture` writes the capture; `-bad-traceparent` client flag and `bad-traceparent` fixture.
 - `doctor` accepts several trace files and `-` for stdin.
+- `doctor -weaver-json out.json` exports spans in OTel Weaver live-check sample format; `examples/weaver/` has the verified command and matchers (M4).
+- Upstream drafts for python-sdk (`docs/upstream/python-sdk.md`), mcp-otel-go, and the conformance suite.
 - Rules MCP-ERR-004 (status `Ok` on success, FAIL per Recording Errors MUST) and MCP-ERR-005 (caller-error JSON-RPC codes recorded as failures, WARN per mcp.md footnote 5). Both found real cases: our own harness marked unknown tools as errors, and so does the Python SDK 2.3.0 client.
 - Rules MCP-SEM-003 (span name format, WARN) and MCP-SEM-004 (missing `gen_ai.operation.name`, INFO), both true positives against the official Python SDK 2.3.0 client.
 - Python SDK v2 scenario (`examples/python-sdk-streamable-http`, uv) and three fixtures: Python default, Go client to Python server, Python client to Go server. Report in `docs/research/python-sdk-v2-validation.md`.

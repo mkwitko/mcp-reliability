@@ -1,0 +1,11 @@
+[["live-check".matchers]]
+id = "mcp.server.by-kind-and-name"
+sample_type = "span"
+when = 'kind == "server" && name.matches("^(tools/|prompts/|resources/|server/|notifications/|initialize|ping|completion/|logging/)")'
+signal = "mcp.server"
+
+[["live-check".matchers]]
+id = "mcp.client.by-kind-and-name"
+sample_type = "span"
+when = 'kind == "client" && name.matches("^(tools/|prompts/|resources/|server/|notifications/|initialize|ping|completion/|logging/)")'
+signal = "mcp.client"

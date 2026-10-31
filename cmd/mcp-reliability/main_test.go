@@ -37,6 +37,18 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestRunWeaverJSON(t *testing.T) {
+	out := t.TempDir() + "/w.json"
+	var buf bytes.Buffer
+	if code := run([]string{"doctor", "-weaver-json", out, "../../testdata/healthy.jsonl"}, strings.NewReader(""), &buf, &buf); code != 0 {
+		t.Fatalf("exit %d: %s", code, buf.String())
+	}
+	b, err := os.ReadFile(out)
+	if err != nil || !strings.Contains(string(b), `"mcp.method.name"`) {
+		t.Fatalf("weaver file: %v %s", err, b)
+	}
+}
+
 func TestRunStdin(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/healthy.jsonl")
 	if err != nil {

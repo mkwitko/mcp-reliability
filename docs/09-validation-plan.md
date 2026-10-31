@@ -4,8 +4,8 @@ Status: nothing validated yet. This plan defines what would count as evidence.
 
 ## Hypotheses
 
-- **H1**: Context propagation breaks by default in at least one real library. Prior evidence: openllmetry#4374 (client injection skipped when `params.meta` is None), mcp-otel-go and opentel-mcp have no client inject (`docs/research/instrumentation-libraries.md`). Not yet reproduced by us.
-- **H2**: `doctor` detects that failure from a recorded trace, with no false FAIL on a correct trace.
+- **H1**: Context propagation breaks by default in at least one real library. Prior evidence: openllmetry#4374 (client injection skipped when `params.meta` is None), mcp-otel-go and opentel-mcp have no client inject (`docs/research/instrumentation-libraries.md`). Status 2026-10-30: NOT reproduced with the official Python SDK 2.3.0, which propagates by default and across SDKs (Go client to Python server links correctly). Still open for openllmetry and mcp-otel-go (client side). The doctor's value so far is in error representation and semconv drift, not propagation; the framing should reflect that if E1 on the other libraries also passes.
+- **H2**: `doctor` detects that failure from a recorded trace, with no false FAIL on a correct trace. Status 2026-10-30: detects the injected Go failure (MCP-PROP-001), zero false FAILs across 9 fixtures; found a real false negative (pairing by tool name) that is now fixed.
 - **H3**: At least one SDK or instrumentation maintainer finds a doctor report useful.
 - **H4**: At least one external user runs `doctor` on their own traces.
 

@@ -10,7 +10,8 @@ Exit criteria, as met:
 - `healthy.jsonl` produces zero findings.
 - Each rule cites its source URL.
 
-## M1: v0.1
+## M1: v0.1 (in progress; status 2026-10-30)
+Done so far: `-wire` input with MCP-PROP-003/004; `-weaver-json` export; stdin and multi-file; rules MCP-SEM-003/004, MCP-ERR-004/005; PROP-001 pairs by `jsonrpc.request.id`; CLI tests; severity-pinned fixture tests; goreleaser and release workflow; GitHub labels and Discussions.
 Scope: `doctor` with the full initial rule set, go-sdk scenario (`examples/go-sdk-streamable-http` with the three failure flags), `examples/collector`, fixtures, CI.
 Exit criteria:
 - Every rule has a passing and a failing fixture; `go test -race ./...` green.
@@ -18,7 +19,8 @@ Exit criteria:
 - Scenario regenerates the fixtures from the documented command.
 - Tagged v0.1.0 with changelog and README quick start that actually works.
 
-## M2: Python and TS scenarios, compatibility report
+## M2: Python and TS scenarios, compatibility report (Python part done 2026-10-30)
+Done: Python SDK 2.3.0 scenario with three fixtures (Python only, Go client to Python server, Python client to Go server). Propagation works by default and across SDKs; doctor finds 10 WARN / 3 INFO on the Python client (names, missing tool name, isError ignored, -32602 as error). TypeScript SDK waits on typescript-sdk PR #3115 (still open 2026-10-30).
 Scope: Python and TS SDK scenarios (candidates from research: openllmetry, openinference, official Python SDK), compatibility matrix of libraries vs. rules.
 Exit criteria:
 - At least 2 non-Go scenarios with fixtures.
@@ -36,7 +38,7 @@ Exit criteria: all four PRs or comments opened with reproduction; at least one m
 ## M4: Weaver integration
 Scope: validate attribute names, enum values, and requirement levels via `weaver registry live-check` against the semconv-genai registry instead of rebuilding that logic.
 Exit criteria:
-- Documented, tested path from a fileexporter file to weaver (research notes weaver cannot read it directly; a Collector replay is the hypothesized route, unverified).
+- Documented, tested path from a fileexporter file to weaver. Done 2026-10-30: `doctor -weaver-json` plus `examples/weaver/` (weaver v0.28.0 catches missing `mcp.method.name`; nothing cross-span).
 - Hand-written attribute rules removed or reduced where weaver covers them.
 - If the path needs more than a documented script, decide in an ADR whether to proceed.
 

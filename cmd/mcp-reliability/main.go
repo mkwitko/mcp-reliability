@@ -1,7 +1,7 @@
 // Command mcp-reliability analyzes OpenTelemetry traces for MCP-specific
 // observability problems.
 //
-//	mcp-reliability doctor [-json] [-strict] [-wire capture.jsonl] <trace.jsonl>... | -
+//	mcp-reliability doctor [-json] [-strict] [-wire capture.jsonl] [-weaver-json out.json] <trace.jsonl>... | -
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/mkwitko/mcp-reliability/internal/wire"
 )
 
-const usage = "usage: mcp-reliability doctor [-json] [-strict] [-wire capture.jsonl] <trace.jsonl>... | -"
+const usage = "usage: mcp-reliability doctor [-json] [-strict] [-wire capture.jsonl] [-weaver-json out.json] <trace.jsonl>... | -"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
@@ -32,6 +32,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	asJSON := fs.Bool("json", false, "emit findings as JSON instead of text")
 	strict := fs.Bool("strict", false, "exit non-zero on WARN as well as FAIL")
 	wireFile := fs.String("wire", "", "optional JSON-RPC capture (newline-delimited {method,_meta}) for wire-format checks")
+	weaverOut := fs.String("weaver-json", "", "also write spans as weaver live-check sample JSON to this path (see examples/weaver)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -62,6 +63,22 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			label += ", "
 		}
 		label += f
+	}
+
+	if *weaverOut != "" {
+		f, err := os.Create(*weaverOut)
+		if err != nil {
+			fmt.Fprintf(stderr, "doctor: %v\n", err)
+			return 2
+		}
+		err = report.Weaver(f, spans)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "doctor: %s: %v\n", *weaverOut, err)
+			return 2
+		}
 	}
 
 	findings := rules.Run(spans)

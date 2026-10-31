@@ -94,7 +94,7 @@ Spans never carry the raw `_meta` values, so the SEP-414 format rule needs a sec
 go run ./cmd/mcp-reliability doctor -wire testdata/bad-traceparent.wire.jsonl testdata/bad-traceparent.jsonl
 ```
 
-`doctor` also accepts several trace files, or `-` to read one from stdin.
+`doctor` also accepts several trace files, or `-` to read one from stdin. `-weaver-json out.json` additionally exports the spans for OTel Weaver attribute validation (`examples/weaver/README.md`).
 
 ## Regenerate fixtures
 
