@@ -1,6 +1,6 @@
 # Contributing
 
-The project is pre-alpha. Expect churn. Read `docs/` first, especially `docs/06-architecture.md` and `docs/07-roadmap.md`.
+The project is pre-alpha. Expect churn. Read `docs/` first, especially `docs/06-architecture.md` and `docs/07-roadmap.md`. New to the code? `docs/11-code-tour.md` walks one `doctor` run file by file.
 
 ## Ways to help
 - **New rule**: open a "New rule" issue first. A rule must quote the MCP spec or OTel semconv text it enforces. FAIL needs a MUST or a Required attribute; never report a violation the standard does not require.
