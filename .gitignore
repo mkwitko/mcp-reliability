@@ -3,3 +3,5 @@
 *.test
 *.out
 .remember/
+.venv/
+__pycache__/
