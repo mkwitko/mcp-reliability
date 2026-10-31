@@ -82,6 +82,7 @@ Then run `mcp-reliability doctor traces.jsonl`. Trace files can contain sensitiv
 | MCP-ERR-006 | WARN | `error.type` holds a Go pointer type name instead of `tool_error` or the JSON-RPC code |
 | MCP-PROP-005 | INFO | All MCP SERVER spans are roots and the file has no MCP CLIENT span although another service is present |
 | MCP-PROP-006 | INFO | MCP-looking spans exist but none is CLIENT/SERVER with `mcp.method.name`; pairing checks could not run |
+| MCP-COV-001 | INFO | spans loaded but none looks like MCP; no MCP rule ran |
 | MCP-PRIV-002 | INFO | Vendor attributes known to hold payloads (`traceloop.entity.*`, `mcp.response.value`); project heuristic |
 | MCP-SEM-003 | WARN | Span name does not follow `{mcp.method.name} {target}` |
 | MCP-SEM-004 | INFO | `tools/call` span lacks `gen_ai.operation.name=execute_tool` (Recommended) |

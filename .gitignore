@@ -5,3 +5,7 @@
 .remember/
 .venv/
 __pycache__/
+node_modules/
+/examples/typescript-sdk-streamable-http/pr3115/vendor/
+/examples/typescript-sdk-streamable-http/pr3115/package-lock.json
+/examples/mcp-otel-go/mcp-otel-go-scenario

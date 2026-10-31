@@ -1,0 +1,13 @@
+{
+  "name": "example-mcp-typescript-sdk",
+  "private": true,
+  "type": "module",
+  "description": "Baseline: published @modelcontextprotocol/sdk 1.32.2 with no MCP instrumentation",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.300.0",
+    "@opentelemetry/sdk-node": "0.300.0",
+    "zod": "4.6.7"
+  }
+}

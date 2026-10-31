@@ -382,6 +382,16 @@ func coverage(spans []trace.Span) []Finding {
 			pairable++
 		}
 	}
+	// MCP-COV-001: the file has spans but none looks like MCP. Without this the
+	// report prints "[PASS] no findings" for an SDK that emits no MCP spans at
+	// all (typescript-sdk 1.32.2), which reads as a pass but means "nothing
+	// was checked".
+	if len(spans) > 0 && mcpSpans == 0 {
+		out = append(out, Finding{
+			Rule: "MCP-COV-001", Severity: Info, Ref: refProjectRules,
+			Message: fmt.Sprintf("%d spans loaded but none looks like an MCP span (no mcp.* or gen_ai.tool.* attribute, no known MCP method name); no MCP rule ran", len(spans)),
+		})
+	}
 	if mcpSpans > 0 && pairable == 0 {
 		out = append(out, Finding{
 			Rule: "MCP-PROP-006", Severity: Info, Ref: refSemconvMCP,

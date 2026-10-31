@@ -20,7 +20,7 @@ var severityOf = map[string]Severity{
 	"MCP-SEM-001": Fail, "MCP-SEM-002": Warn, "MCP-SEM-003": Warn, "MCP-SEM-004": Info,
 	"MCP-ERR-001": Warn, "MCP-ERR-002": Warn, "MCP-ERR-003": Warn, "MCP-ERR-004": Fail, "MCP-ERR-005": Warn, "MCP-ERR-006": Warn,
 	"MCP-PROP-001": Warn, "MCP-PROP-002": Info, "MCP-PROP-003": Fail, "MCP-PROP-004": Info, "MCP-PROP-005": Info,
-	"MCP-PRIV-001": Warn, "MCP-PRIV-002": Info, "MCP-PROP-006": Info,
+	"MCP-PRIV-001": Warn, "MCP-PRIV-002": Info, "MCP-PROP-006": Info, "MCP-COV-001": Info,
 }
 
 // Each fixture was produced by examples/run-scenarios.sh against the official
@@ -29,20 +29,24 @@ var severityOf = map[string]Severity{
 // is caught. Wire captures (testdata/<name>.wire.jsonl) are checked when present.
 func TestFixtures(t *testing.T) {
 	cases := map[string]map[string]int{
-		"healthy":                       {},
-		"broken-propagation":            {"MCP-PROP-001": 6, "MCP-PROP-004": 1},
-		"broken-error-type":             {"MCP-ERR-003": 1},
-		"leaked-arguments":              {"MCP-PRIV-001": 3},
-		"missing-method-attr":           {"MCP-SEM-001": 5},
-		"bad-traceparent":               {"MCP-PROP-001": 6, "MCP-PROP-003": 6},
-		"python-sdk-default":            {"MCP-ERR-003": 2, "MCP-SEM-002": 3, "MCP-SEM-003": 5, "MCP-SEM-004": 3},
-		"cross-go-client-python-server": {},
-		"openllmetry-default":           {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
-		"openllmetry-with-meta":         {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
-		"openllmetry-legacy-transport":  {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 15},
-		"mcp-otel-go-default":           {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-PROP-005": 1, "MCP-SEM-004": 3},
-		"mcp-otel-go-client-inject":     {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-SEM-004": 3},
-		"cross-python-client-go-server": {"MCP-SEM-003": 6, "MCP-SEM-002": 3, "MCP-SEM-004": 3, "MCP-ERR-003": 2, "MCP-ERR-005": 1},
+		"healthy":                           {},
+		"broken-propagation":                {"MCP-PROP-001": 6, "MCP-PROP-004": 1},
+		"broken-error-type":                 {"MCP-ERR-003": 1},
+		"leaked-arguments":                  {"MCP-PRIV-001": 3},
+		"missing-method-attr":               {"MCP-SEM-001": 5},
+		"bad-traceparent":                   {"MCP-PROP-001": 6, "MCP-PROP-003": 6},
+		"python-sdk-default":                {"MCP-ERR-003": 2, "MCP-SEM-002": 3, "MCP-SEM-003": 5, "MCP-SEM-004": 3},
+		"cross-go-client-python-server":     {},
+		"openllmetry-default":               {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
+		"openllmetry-with-meta":             {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
+		"openllmetry-legacy-transport":      {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 15},
+		"mcp-otel-go-default":               {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-PROP-005": 1, "MCP-SEM-004": 3},
+		"mcp-otel-go-client-inject":         {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-SEM-004": 3},
+		"cross-python-client-go-server":     {"MCP-SEM-003": 6, "MCP-SEM-002": 3, "MCP-SEM-004": 3, "MCP-ERR-003": 2, "MCP-ERR-005": 1},
+		"typescript-sdk-default":            {"MCP-COV-001": 1},
+		"cross-go-client-typescript-server": {},
+		"cross-typescript-client-go-server": {"MCP-PROP-005": 1},
+		"typescript-sdk-pr3115":             {"MCP-ERR-003": 1, "MCP-ERR-005": 1},
 	}
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -130,7 +134,7 @@ func TestSyntheticRules(t *testing.T) {
 		}, nil},
 		{"non-MCP span named like a method prefix is ignored", []trace.Span{
 			{TraceID: "t", SpanID: "a", Name: "ping-db", Kind: ptrace.SpanKindClient, Status: ptrace.StatusCodeError, Attrs: map[string]string{}},
-		}, nil},
+		}, []string{"MCP-COV-001"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

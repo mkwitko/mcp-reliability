@@ -1,0 +1,19 @@
+{
+  "name": "example-mcp-typescript-sdk-pr3115",
+  "private": true,
+  "type": "module",
+  "description": "modelcontextprotocol/typescript-sdk#3115 build (2.4.0 + built-in OTel), installed from local tarballs in vendor/ (see build-tarballs.sh)",
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "@modelcontextprotocol/client": "file:vendor/modelcontextprotocol-client-2.4.0.tgz",
+    "@modelcontextprotocol/core": "file:vendor/modelcontextprotocol-core-2.4.0.tgz",
+    "@modelcontextprotocol/server": "file:vendor/modelcontextprotocol-server-2.4.0.tgz",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.300.0",
+    "@opentelemetry/sdk-node": "0.300.0",
+    "zod": "4.6.7"
+  },
+  "overrides": {
+    "@modelcontextprotocol/core": "file:vendor/modelcontextprotocol-core-2.4.0.tgz"
+  }
+}

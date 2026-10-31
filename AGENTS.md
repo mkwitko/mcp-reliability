@@ -8,9 +8,10 @@ Project: `mcp-reliability`, a Go CLI (`mcp-reliability doctor`) that checks Open
 
 1. `README.md`
 2. `docs/06-architecture.md` (data flow, API, rule contract, invariants)
-3. `docs/adr/` (decisions already made; do not relitigate without a new ADR)
-4. `internal/rules/rules.go` (the rules and their cited text)
-5. `docs/07-roadmap.md` for scope; `docs/research/` only for sources.
+3. `docs/11-code-tour.md` (file-by-file walk of one run; names the Go idioms)
+4. `docs/adr/` (decisions already made; do not relitigate without a new ADR)
+5. `internal/rules/rules.go` (the rules and their cited text)
+6. `docs/07-roadmap.md` for scope; `docs/research/` only for sources.
 
 ## 2. Commands
 
@@ -19,6 +20,7 @@ make check      # fmt vet test lint vuln; this is the definition of green
 make test       # go test -race -count=1 ./...
 make fixtures   # regenerate the go-sdk testdata/*.jsonl; needs Docker, restarts the collector per scenario
 examples/python-sdk-streamable-http/run.sh   # Python SDK 2.3.0 fixtures (uv)
+examples/typescript-sdk-streamable-http/run.sh   # TypeScript SDK 1.32.2 baseline fixtures (npm); pr3115 scenario needs pr3115/build-tarballs.sh first
 examples/openllmetry-python/run.sh           # openllmetry fixtures (uv), own collector on 4319
 examples/mcp-otel-go/run.sh                  # mcp-otel-go fixtures, own collector on 4320
 make report     # regenerate docs/compatibility-report.md from testdata/

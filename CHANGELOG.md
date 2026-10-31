@@ -5,6 +5,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+- Rule MCP-COV-001 (INFO): file has spans but none looks like MCP, so "no findings" is not a pass.
+- docs/11-code-tour.md: file-by-file walk of one `doctor` run for newcomers.
+
 ### Added
 - `doctor -wire <capture.jsonl>`: wire-format checks MCP-PROP-003 (SEP-414 `_meta.traceparent` MUST be W3C formatted, FAIL) and MCP-PROP-004 (no traceparent on the wire, INFO). Harness flag `-capture` writes the capture; `-bad-traceparent` client flag and `bad-traceparent` fixture.
 - `doctor` accepts several trace files and `-` for stdin.
@@ -18,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - mcp-otel-go scenario (`examples/mcp-otel-go`, standalone module) with two fixtures: library defaults (propagation lost: six root server spans in six traces, status Ok on success) and the proposed client-inject fix (linked). Report: `docs/research/mcp-otel-go-validation.md`.
 - Rules MCP-SEM-003 (span name format, WARN) and MCP-SEM-004 (missing `gen_ai.operation.name`, INFO), both true positives against the official Python SDK 2.3.0 client.
 - Python SDK v2 scenario (`examples/python-sdk-streamable-http`, uv) and three fixtures: Python default, Go client to Python server, Python client to Go server. Report in `docs/research/python-sdk-v2-validation.md`.
+- TypeScript SDK scenario (`examples/typescript-sdk-streamable-http`, npm): baseline `@modelcontextprotocol/sdk` 1.32.2 (no MCP spans, no `_meta.traceparent`) and the open typescript-sdk#3115 build (built-in spans, propagates), four fixtures incl. two cross-SDK. Report in `docs/research/typescript-sdk-validation.md`.
 
 ### Changed
 - MCP-PROP-001 pairs client and server spans by `jsonrpc.request.id` when present, falling back to tool name. The Python client sets no tool name, which hid a broken-propagation case.
