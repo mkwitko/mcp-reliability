@@ -86,12 +86,19 @@ func Run(spans []trace.Span) []Finding {
 	f = append(f, pairConsistency(spans)...)
 	f = append(f, propagation(spans)...)
 	f = append(f, sensitiveData(spans)...)
+	return Sort(f)
+}
+
+// Sort orders findings by severity, highest first, keeping rule order otherwise.
+func Sort(f []Finding) []Finding {
 	sort.SliceStable(f, func(i, j int) bool { return f[i].Severity > f[j].Severity })
 	return f
 }
 
 // MCP-SEM-001: mcp.method.name is Required on MCP spans.
 // MCP-SEM-002: gen_ai.tool.name is Conditionally Required for tool operations.
+// MCP-SEM-003: span name SHOULD be `{mcp.method.name} {target}` or `{mcp.method.name}`.
+// MCP-SEM-004: gen_ai.operation.name=execute_tool is Recommended on tool calls.
 func requiredAttributes(spans []trace.Span) []Finding {
 	var out []Finding
 	for _, s := range spans {
@@ -106,7 +113,19 @@ func requiredAttributes(spans []trace.Span) []Finding {
 			})
 			continue
 		}
+		if s.Name != method && !strings.HasPrefix(s.Name, method+" ") {
+			out = append(out, Finding{
+				Rule: "MCP-SEM-003", Severity: Warn, Spans: []string{s.SpanID}, Ref: refSemconvMCP,
+				Message: fmt.Sprintf("span %q is named neither %q nor %q (span name SHOULD follow the format {mcp.method.name} {target})", s.Name, method, method+" {target}"),
+			})
+		}
 		if method == "tools/call" {
+			if _, ok := s.Attr("gen_ai.operation.name"); !ok {
+				out = append(out, Finding{
+					Rule: "MCP-SEM-004", Severity: Info, Spans: []string{s.SpanID}, Ref: refSemconvMCP,
+					Message: fmt.Sprintf("tools/call span %q lacks gen_ai.operation.name=execute_tool (Recommended; lets backends treat MCP tool calls like other tool calls)", s.Name),
+				})
+			}
 			if _, ok := s.Attr("gen_ai.tool.name"); !ok {
 				out = append(out, Finding{
 					Rule: "MCP-SEM-002", Severity: Warn, Spans: []string{s.SpanID}, Ref: refSemconvMCP,
@@ -118,6 +137,10 @@ func requiredAttributes(spans []trace.Span) []Finding {
 	return out
 }
 
+// JSON-RPC codes the semconv says SHOULD NOT be considered errors (caller
+// sent a request the receiver could not serve).
+var nonErrorCodes = map[string]bool{"-32700": true, "-32600": true, "-32601": true, "-32602": true, "-32002": true}
+
 // MCP-ERR-001: error.type is Conditionally Required if and only if the operation fails.
 // MCP-ERR-002: a failed operation whose span status is Unset (recording-errors guidance).
 func errorRepresentation(spans []trace.Span) []Finding {
@@ -128,11 +151,29 @@ func errorRepresentation(spans []trace.Span) []Finding {
 		}
 		_, hasErrType := s.Attr("error.type")
 		code, hasCode := s.Attr("rpc.response.status_code")
-		failed := s.Status == ptrace.StatusCodeError || (hasCode && code != "OK" && code != "")
+		failed := s.Status == ptrace.StatusCodeError || (hasCode && code != "OK" && code != "" && !nonErrorCodes[code])
 		if failed && !hasErrType {
 			out = append(out, Finding{
 				Rule: "MCP-ERR-001", Severity: Warn, Spans: []string{s.SpanID}, Ref: refSemconvMCP,
 				Message: fmt.Sprintf("span %q failed (status=%s, rpc.response.status_code present=%t) but lacks error.type (Conditionally Required if the operation fails)", s.Name, s.Status, hasCode),
+			})
+		}
+		// MCP-ERR-004: status Ok on an MCP span. Recording Errors: "Span Status
+		// Code MUST be left unset if the instrumented operation has ended without
+		// any errors."
+		if s.Status == ptrace.StatusCodeOk {
+			out = append(out, Finding{
+				Rule: "MCP-ERR-004", Severity: Fail, Spans: []string{s.SpanID}, Ref: refRecErrors,
+				Message: fmt.Sprintf("span %q has status Ok; status MUST be left Unset when the operation ends without errors", s.Name),
+			})
+		}
+		// MCP-ERR-005: a caller-error JSON-RPC code recorded as a failure. The
+		// MCP semconv lists -32700, -32600, -32601, -32602 and -32002 as codes
+		// that SHOULD NOT be considered errors.
+		if hasCode && nonErrorCodes[code] && (s.Status == ptrace.StatusCodeError || hasErrType) {
+			out = append(out, Finding{
+				Rule: "MCP-ERR-005", Severity: Warn, Spans: []string{s.SpanID}, Ref: refSemconvMCP,
+				Message: fmt.Sprintf("span %q is marked failed (status=%s, error.type present=%t) for a JSON-RPC code the semconv says SHOULD NOT be considered an error (caller-side codes -32700/-32600/-32601/-32602/-32002)", s.Name, s.Status, hasErrType),
 			})
 		}
 		if hasErrType && s.Status == ptrace.StatusCodeUnset {
@@ -149,6 +190,8 @@ func errorRepresentation(spans []trace.Span) []Finding {
 // span of the same call => context was not propagated across the MCP boundary.
 // The semconv says instrumentation SHOULD inject/extract via params._meta, and
 // SEP-414 reserves the keys; propagation itself is not a MUST, so this is WARN.
+// Pairing uses (method, jsonrpc.request.id) when both sides carry the id, and
+// falls back to (method, gen_ai.tool.name) otherwise.
 // MCP-PROP-002: parent span id set but parent absent from the file (orphan). INFO
 // because the parent may simply be unsampled or exported elsewhere.
 func propagation(spans []trace.Span) []Finding {
@@ -157,15 +200,19 @@ func propagation(spans []trace.Span) []Finding {
 	for _, s := range spans {
 		byID[s.SpanID] = s
 	}
-	type key struct{ method, target string }
-	clients := map[key][]trace.Span{}
+	type key struct{ method, a string }
+	byReqID := map[key][]trace.Span{}
+	byTool := map[key][]trace.Span{}
 	for _, s := range spans {
 		if s.Kind != ptrace.SpanKindClient || !looksMCP(s) {
 			continue
 		}
 		m, _ := s.Attr("mcp.method.name")
+		if id, ok := s.Attr("jsonrpc.request.id"); ok {
+			byReqID[key{m, id}] = append(byReqID[key{m, id}], s)
+		}
 		t, _ := s.Attr("gen_ai.tool.name")
-		clients[key{m, t}] = append(clients[key{m, t}], s)
+		byTool[key{m, t}] = append(byTool[key{m, t}], s)
 	}
 	for _, s := range spans {
 		if !looksMCP(s) {
@@ -183,8 +230,14 @@ func propagation(spans []trace.Span) []Finding {
 			continue
 		}
 		m, _ := s.Attr("mcp.method.name")
-		t, _ := s.Attr("gen_ai.tool.name")
-		cands := clients[key{m, t}]
+		var cands []trace.Span
+		if id, ok := s.Attr("jsonrpc.request.id"); ok {
+			cands = byReqID[key{m, id}]
+		}
+		if len(cands) == 0 {
+			t, _ := s.Attr("gen_ai.tool.name")
+			cands = byTool[key{m, t}]
+		}
 		if len(cands) == 0 {
 			continue
 		}
