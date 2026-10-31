@@ -101,6 +101,7 @@ Limits:
 - A span with neither attributes nor a known name is invisible, so a fully uninstrumented MCP hop is not reported.
 - The method list is a subset of the semconv enum and is hand-maintained. A method not in it (for example `server/discover`, seen in the fixtures) is only recognised via attributes.
 - MCP-PRIV-001 does not use `looksMCP`; it checks every span.
+- `looksMCP` also accepts the openllmetry shape: a `traceloop.*` attribute on a span named `*.mcp` or `*.tool`. This is a vendor heuristic so that non-conforming instrumentation is checked instead of skipped; it is the only vendor-specific logic in recognition.
 
 ## 6. Rule catalogue
 
@@ -118,6 +119,10 @@ Source URLs: semconv = `https://github.com/open-telemetry/semantic-conventions-g
 | MCP-PRIV-001 | Any span carries `gen_ai.tool.call.arguments`, `gen_ai.tool.call.result`, `gen_ai.input.messages`, or `gen_ai.output.messages` | WARN | semconv marks these Opt-In and sensitive | Intended in dev/test environments |
 | MCP-ERR-004 | MCP span with status `Ok` | FAIL | Recording Errors: "Span Status Code MUST be left unset if the instrumented operation has ended without any errors" | None; the document is Development status |
 | MCP-ERR-005 | MCP span with `rpc.response.status_code` in {-32700, -32600, -32601, -32602, -32002} and status `Error` or `error.type` present | WARN | mcp.md footnote [5]: these codes "SHOULD NOT be considered errors" | An application that treats unknown tools as its own failure |
+| MCP-ERR-006 | MCP span whose `error.type` starts with `*` | WARN | mcp.md footnote [1]: `tool_error` for tool results, the JSON-RPC code for protocol errors; exception class only as a fallback | None known; found on mcp-otel-go v0.2.1 (`*jsonrpc2.WireError`) |
+| MCP-PROP-005 | Every MCP SERVER span is a root, the file has spans from more than one service, and no MCP CLIENT span exists | INFO | semconv: instrumentation SHOULD inject via `params._meta`; without a client span the rule cannot pair, so it only points | A client that is deliberately not instrumented for MCP |
+| MCP-PROP-006 | `looksMCP` spans exist, none is CLIENT or SERVER with `mcp.method.name` | INFO | coverage signal, no normative text; prevents reading "no PROP findings" as a pass | None |
+| MCP-PRIV-002 | Span carries `traceloop.entity.input/output`, `mcp.response.value` or `mcp.request.argument` | INFO | project heuristic (`vendorPayloadAttrs`), not a standard; Ref points at this table | Vendor attribute repurposed for non-payload data |
 | MCP-SEM-003 | MCP span whose name is neither `{mcp.method.name}` nor `{mcp.method.name} {target}` | WARN | semconv: "Span name SHOULD follow the format `{mcp.method.name} {target}`" | None known; the Python SDK client's `MCP send {method}` names are a true positive |
 | MCP-SEM-004 | `tools/call` span without `gen_ai.operation.name` | INFO | semconv: Recommended, "SHOULD be set to execute_tool when the operation describes a tool call" | None |
 | MCP-PROP-003 (wire) | Captured `_meta.traceparent` is not a string or does not match `^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$` with non-zero ids; `tracestate`/`baggage` not strings | FAIL | SEP-414: "When present, their values MUST follow W3C Trace Context and W3C Baggage formats" | Capture produced by a proxy that rewrites `_meta` |

@@ -8,6 +8,7 @@ all: check
 
 build:
 	$(GO) build ./...
+	cd examples/mcp-otel-go && $(GO) build ./...
 
 fmt:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "unformatted:"; echo "$$out"; exit 1; fi

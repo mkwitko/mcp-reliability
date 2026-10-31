@@ -17,7 +17,12 @@ Rule texts and citations: `docs/06-architecture.md`, section 6.
 | `cross-python-client-go-server` | mcp 2.3.0 client -> go-sdk harness server | cross-SDK propagation | 0 | 12 | 3 | MCP-ERR-003 x2, MCP-ERR-005 x1, MCP-SEM-002 x3, MCP-SEM-003 x6, MCP-SEM-004 x3 |
 | `healthy` | go-sdk v1.8.0 client+server, hand-rolled middleware | baseline, no injected defect | 0 | 0 | 0 | none |
 | `leaked-arguments` | go-sdk harness | server records gen_ai.tool.call.arguments | 0 | 3 | 0 | MCP-PRIV-001 x3 |
+| `mcp-otel-go-client-inject` | mcp-otel-go server, client with inject middleware | proposed upstream fix | 4 | 1 | 3 | MCP-ERR-004 x4, MCP-ERR-006 x1, MCP-SEM-004 x3 |
+| `mcp-otel-go-default` | mcp-otel-go server, plain go-sdk client | library defaults | 4 | 1 | 4 | MCP-ERR-004 x4, MCP-ERR-006 x1, MCP-PROP-005 x1, MCP-SEM-004 x3 |
 | `missing-method-attr` | go-sdk harness | server omits mcp.method.name | 5 | 0 | 0 | MCP-SEM-001 x5 |
+| `openllmetry-default` | opentelemetry-instrumentation-mcp (traceloop) client+server | library defaults | 13 | 2 | 16 | MCP-ERR-001 x2, MCP-ERR-004 x3, MCP-PRIV-002 x15, MCP-PROP-006 x1, MCP-SEM-001 x10 |
+| `openllmetry-legacy-transport` | (add to scripts/compat-report.py META) |  | 18 | 2 | 16 | MCP-ERR-001 x2, MCP-ERR-004 x3, MCP-PRIV-002 x15, MCP-PROP-006 x1, MCP-SEM-001 x15 |
+| `openllmetry-with-meta` | opentelemetry-instrumentation-mcp client with non-None meta | #4374 workaround | 13 | 2 | 16 | MCP-ERR-001 x2, MCP-ERR-004 x3, MCP-PRIV-002 x15, MCP-PROP-006 x1, MCP-SEM-001 x10 |
 | `python-sdk-default` | mcp 2.3.0 (Python) client+server, built-in OTel | SDK defaults | 0 | 10 | 3 | MCP-ERR-003 x2, MCP-SEM-002 x3, MCP-SEM-003 x5, MCP-SEM-004 x3 |
 
 Reading the table:

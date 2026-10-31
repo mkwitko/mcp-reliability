@@ -12,6 +12,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - `doctor -weaver-json out.json` exports spans in OTel Weaver live-check sample format; `examples/weaver/` has the verified command and matchers (M4).
 - Upstream drafts for python-sdk (`docs/upstream/python-sdk.md`), mcp-otel-go, and the conformance suite.
 - Rules MCP-ERR-004 (status `Ok` on success, FAIL per Recording Errors MUST) and MCP-ERR-005 (caller-error JSON-RPC codes recorded as failures, WARN per mcp.md footnote 5). Both found real cases: our own harness marked unknown tools as errors, and so does the Python SDK 2.3.0 client.
+- Rules MCP-PROP-006 (no pairable CLIENT/SERVER spans, INFO) and MCP-PRIV-002 (vendor payload attributes, INFO, project heuristic). `looksMCP` recognises openllmetry's `{tool}.tool` / `{method}.mcp` spans.
+- openllmetry scenario (`examples/openllmetry-python`, `opentelemetry-instrumentation-mcp` 0.62.4 with mcp 1.30.0) with three fixtures: defaults (propagation lost on every request, #4374 reproduced), `meta={}` workaround, deprecated `streamablehttp_client` transport (propagates). Report: `docs/research/openllmetry-validation.md`.
+- Rules MCP-ERR-006 (Go type name in `error.type`, WARN) and MCP-PROP-005 (root server spans with no MCP client span in a multi-service file, INFO), both from the mcp-otel-go v0.2.1 validation.
+- mcp-otel-go scenario (`examples/mcp-otel-go`, standalone module) with two fixtures: library defaults (propagation lost: six root server spans in six traces, status Ok on success) and the proposed client-inject fix (linked). Report: `docs/research/mcp-otel-go-validation.md`.
 - Rules MCP-SEM-003 (span name format, WARN) and MCP-SEM-004 (missing `gen_ai.operation.name`, INFO), both true positives against the official Python SDK 2.3.0 client.
 - Python SDK v2 scenario (`examples/python-sdk-streamable-http`, uv) and three fixtures: Python default, Go client to Python server, Python client to Go server. Report in `docs/research/python-sdk-v2-validation.md`.
 
