@@ -44,8 +44,9 @@ type Finding struct {
 }
 
 const (
-	refSemconvMCP = "https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/mcp.md"
-	refRecErrors  = "https://opentelemetry.io/docs/specs/semconv/general/recording-errors/"
+	refSemconvMCP   = "https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/mcp.md"
+	refRecErrors    = "https://opentelemetry.io/docs/specs/semconv/general/recording-errors/"
+	refProjectRules = "https://github.com/mkwitko/mcp-reliability/blob/main/docs/06-architecture.md#6-rule-catalogue (project heuristic, not a standard)"
 )
 
 // Well-known MCP method names from the semconv enum (subset is enough to
@@ -63,10 +64,25 @@ var sensitiveAttrs = []string{
 	"gen_ai.input.messages", "gen_ai.output.messages",
 }
 
+// Vendor attribute names known to carry request or response payloads. These
+// are not semconv attributes; the list is a project heuristic (MCP-PRIV-002)
+// and must stay short and documented.
+var vendorPayloadAttrs = []string{
+	"traceloop.entity.input", "traceloop.entity.output", // openllmetry
+	"mcp.response.value", "mcp.request.argument", // openllmetry server/client writers
+}
+
 // looksMCP reports whether a span is (or was meant to be) an MCP span.
+// Besides semconv attributes and method names it recognises the openllmetry
+// shape (`{tool}.tool` / `{method}.mcp` names with `traceloop.*` attributes),
+// a documented heuristic so that non-conforming instrumentation is checked
+// rather than silently skipped.
 func looksMCP(s trace.Span) bool {
 	for k := range s.Attrs {
 		if strings.HasPrefix(k, "mcp.") || strings.HasPrefix(k, "gen_ai.tool.") || k == "jsonrpc.request.id" {
+			return true
+		}
+		if strings.HasPrefix(k, "traceloop.") && (strings.HasSuffix(s.Name, ".mcp") || strings.HasSuffix(s.Name, ".tool")) {
 			return true
 		}
 	}
@@ -86,6 +102,7 @@ func Run(spans []trace.Span) []Finding {
 	f = append(f, pairConsistency(spans)...)
 	f = append(f, propagation(spans)...)
 	f = append(f, sensitiveData(spans)...)
+	f = append(f, coverage(spans)...)
 	return Sort(f)
 }
 
@@ -176,6 +193,15 @@ func errorRepresentation(spans []trace.Span) []Finding {
 				Message: fmt.Sprintf("span %q is marked failed (status=%s, error.type present=%t) for a JSON-RPC code the semconv says SHOULD NOT be considered an error (caller-side codes -32700/-32600/-32601/-32602/-32002)", s.Name, s.Status, hasErrType),
 			})
 		}
+		// MCP-ERR-006: error.type carrying a Go pointer type name. mcp.md
+		// footnote [1]: use `tool_error` for tool results, the JSON-RPC error
+		// code for protocol errors, and only otherwise an exception class name.
+		if et, ok := s.Attr("error.type"); ok && strings.HasPrefix(et, "*") {
+			out = append(out, Finding{
+				Rule: "MCP-ERR-006", Severity: Warn, Spans: []string{s.SpanID}, Ref: refSemconvMCP,
+				Message: fmt.Sprintf("span %q has error.type set to a Go pointer type name; semconv asks for tool_error or the JSON-RPC error code (low-cardinality values)", s.Name),
+			})
+		}
 		if hasErrType && s.Status == ptrace.StatusCodeUnset {
 			out = append(out, Finding{
 				Rule: "MCP-ERR-002", Severity: Warn, Spans: []string{s.SpanID}, Ref: refRecErrors,
@@ -213,6 +239,24 @@ func propagation(spans []trace.Span) []Finding {
 		}
 		t, _ := s.Attr("gen_ai.tool.name")
 		byTool[key{m, t}] = append(byTool[key{m, t}], s)
+	}
+	// MCP-PROP-005: every MCP SERVER span is a trace root and the file holds
+	// no MCP CLIENT span at all, although spans from another service are
+	// present. Nothing can be paired, so this is INFO: the caller is either
+	// uninstrumented for MCP or does not inject into params._meta.
+	var rootServers []string
+	services := map[string]bool{}
+	for _, s := range spans {
+		services[s.Service] = true
+		if looksMCP(s) && s.Kind == ptrace.SpanKindServer && s.ParentID == "" {
+			rootServers = append(rootServers, s.SpanID)
+		}
+	}
+	if len(rootServers) > 0 && len(byReqID)+len(byTool) == 0 && len(services) > 1 {
+		out = append(out, Finding{
+			Rule: "MCP-PROP-005", Severity: Info, Spans: rootServers, Ref: refSemconvMCP,
+			Message: fmt.Sprintf("%d MCP SERVER spans are trace roots and the file has spans from %d services but no MCP CLIENT span: the client side is not instrumented for MCP or does not inject trace context into params._meta", len(rootServers), len(services)),
+		})
 	}
 	for _, s := range spans {
 		if !looksMCP(s) {
@@ -309,6 +353,40 @@ func pairConsistency(spans []trace.Span) []Finding {
 				Message: fmt.Sprintf("client and server spans for %q disagree on failure: the %s span lacks error.type", srv.Name, side),
 			})
 		}
+	}
+	return out
+}
+
+// MCP-PRIV-002: vendor attributes known to hold payloads. Project heuristic,
+// not a semconv requirement, hence INFO.
+// MCP-PROP-006: MCP-looking spans exist but none is a CLIENT or SERVER span
+// with mcp.method.name, so the propagation and pairing rules had nothing to
+// work on. INFO so the absence of PROP findings is not read as a pass.
+func coverage(spans []trace.Span) []Finding {
+	var out []Finding
+	mcpSpans, pairable := 0, 0
+	for _, s := range spans {
+		for _, a := range vendorPayloadAttrs {
+			if _, ok := s.Attr(a); ok {
+				out = append(out, Finding{
+					Rule: "MCP-PRIV-002", Severity: Info, Spans: []string{s.SpanID}, Ref: refProjectRules,
+					Message: fmt.Sprintf("span %q carries vendor attribute %s, which is known to hold request or response payloads", s.Name, a),
+				})
+			}
+		}
+		if !looksMCP(s) {
+			continue
+		}
+		mcpSpans++
+		if _, ok := s.Attr("mcp.method.name"); ok && (s.Kind == ptrace.SpanKindClient || s.Kind == ptrace.SpanKindServer) {
+			pairable++
+		}
+	}
+	if mcpSpans > 0 && pairable == 0 {
+		out = append(out, Finding{
+			Rule: "MCP-PROP-006", Severity: Info, Ref: refSemconvMCP,
+			Message: fmt.Sprintf("%d MCP-looking spans but none is a CLIENT or SERVER span with mcp.method.name; propagation and client/server pairing checks (MCP-PROP-001, MCP-ERR-003) could not run", mcpSpans),
+		})
 	}
 	return out
 }

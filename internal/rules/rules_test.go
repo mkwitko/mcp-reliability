@@ -18,9 +18,9 @@ import (
 // decision (see docs/06-architecture.md, rule contract), so it fails here first.
 var severityOf = map[string]Severity{
 	"MCP-SEM-001": Fail, "MCP-SEM-002": Warn, "MCP-SEM-003": Warn, "MCP-SEM-004": Info,
-	"MCP-ERR-001": Warn, "MCP-ERR-002": Warn, "MCP-ERR-003": Warn, "MCP-ERR-004": Fail, "MCP-ERR-005": Warn,
-	"MCP-PROP-001": Warn, "MCP-PROP-002": Info, "MCP-PROP-003": Fail, "MCP-PROP-004": Info,
-	"MCP-PRIV-001": Warn,
+	"MCP-ERR-001": Warn, "MCP-ERR-002": Warn, "MCP-ERR-003": Warn, "MCP-ERR-004": Fail, "MCP-ERR-005": Warn, "MCP-ERR-006": Warn,
+	"MCP-PROP-001": Warn, "MCP-PROP-002": Info, "MCP-PROP-003": Fail, "MCP-PROP-004": Info, "MCP-PROP-005": Info,
+	"MCP-PRIV-001": Warn, "MCP-PRIV-002": Info, "MCP-PROP-006": Info,
 }
 
 // Each fixture was produced by examples/run-scenarios.sh against the official
@@ -37,6 +37,11 @@ func TestFixtures(t *testing.T) {
 		"bad-traceparent":               {"MCP-PROP-001": 6, "MCP-PROP-003": 6},
 		"python-sdk-default":            {"MCP-ERR-003": 2, "MCP-SEM-002": 3, "MCP-SEM-003": 5, "MCP-SEM-004": 3},
 		"cross-go-client-python-server": {},
+		"openllmetry-default":           {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
+		"openllmetry-with-meta":         {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
+		"openllmetry-legacy-transport":  {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 15},
+		"mcp-otel-go-default":           {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-PROP-005": 1, "MCP-SEM-004": 3},
+		"mcp-otel-go-client-inject":     {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-SEM-004": 3},
 		"cross-python-client-go-server": {"MCP-SEM-003": 6, "MCP-SEM-002": 3, "MCP-SEM-004": 3, "MCP-ERR-003": 2, "MCP-ERR-005": 1},
 	}
 	for name, want := range cases {
@@ -112,6 +117,16 @@ func TestSyntheticRules(t *testing.T) {
 		}, []string{"MCP-ERR-005"}},
 		{"unknown tool unset status is not a failure", []trace.Span{
 			mcp("a", "", "tools/call x", ptrace.SpanKindClient, ptrace.StatusCodeUnset, map[string]string{"mcp.method.name": "tools/call", "gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": "x", "rpc.response.status_code": "-32602"}),
+		}, nil},
+		{"ERR-006 Go type name in error.type", []trace.Span{
+			mcp("a", "", "tools/call x", ptrace.SpanKindServer, ptrace.StatusCodeError, map[string]string{"mcp.method.name": "tools/call", "gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": "x", "error.type": "*jsonrpc2.WireError"}),
+		}, []string{"MCP-ERR-006"}},
+		{"PROP-005 root servers, other service, no client spans", []trace.Span{
+			{TraceID: "t1", SpanID: "a", Name: "agent step", Kind: ptrace.SpanKindInternal, Service: "app", Attrs: map[string]string{}},
+			{TraceID: "t2", SpanID: "b", Name: "ping", Kind: ptrace.SpanKindServer, Service: "srv", Attrs: map[string]string{"mcp.method.name": "ping"}},
+		}, []string{"MCP-PROP-005"}},
+		{"PROP-005 not raised for a single-service file", []trace.Span{
+			{TraceID: "t2", SpanID: "b", Name: "ping", Kind: ptrace.SpanKindServer, Service: "srv", Attrs: map[string]string{"mcp.method.name": "ping"}},
 		}, nil},
 		{"non-MCP span named like a method prefix is ignored", []trace.Span{
 			{TraceID: "t", SpanID: "a", Name: "ping-db", Kind: ptrace.SpanKindClient, Status: ptrace.StatusCodeError, Attrs: map[string]string{}},
