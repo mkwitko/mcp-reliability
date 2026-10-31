@@ -29,3 +29,8 @@ check: fmt vet test lint vuln
 # Regenerates testdata/*.jsonl from a live go-sdk client/server. Needs Docker.
 fixtures:
 	./examples/run-scenarios.sh
+
+# Regenerates docs/compatibility-report.md from testdata/ via doctor -json.
+report: build
+	$(GO) build -o /tmp/mcp-reliability-doctor ./cmd/mcp-reliability
+	python3 scripts/compat-report.py /tmp/mcp-reliability-doctor

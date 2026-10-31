@@ -110,6 +110,10 @@ make fixtures
 make check   # gofmt, vet, test -race, staticcheck, govulncheck
 ```
 
+## Compatibility report
+
+`docs/compatibility-report.md` lists every fixture, its producer (SDK or library and version), and the rules that fire. Regenerate with `make report`.
+
 ## Status and roadmap
 
 M0 (PoC) is done. The next steps are a first tagged release and scenarios for the Python and TypeScript SDKs. See `docs/07-roadmap.md`. Known limits are listed in `docs/06-architecture.md`, section 12.
