@@ -1,5 +1,5 @@
 /bin/
-/examples/collector/out/
+/examples/collector/out*/
 *.test
 *.out
 .remember/
