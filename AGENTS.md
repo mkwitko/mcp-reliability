@@ -17,7 +17,13 @@ Project: `mcp-reliability`, a Go CLI (`mcp-reliability doctor`) that checks Open
 ```
 make check      # fmt vet test lint vuln; this is the definition of green
 make test       # go test -race -count=1 ./...
-make fixtures   # regenerate testdata/*.jsonl; needs Docker, restarts the collector per scenario
+make fixtures   # regenerate the go-sdk testdata/*.jsonl; needs Docker, restarts the collector per scenario
+examples/python-sdk-streamable-http/run.sh   # Python SDK 2.3.0 fixtures (uv)
+examples/openllmetry-python/run.sh           # openllmetry fixtures (uv), own collector on 4319
+examples/mcp-otel-go/run.sh                  # mcp-otel-go fixtures, own collector on 4320
+make report     # regenerate docs/compatibility-report.md from testdata/
+# Captures sharing a collector port must run one at a time; the compose file
+# takes COLLECTOR_PORT / COLLECTOR_OUT and a -p project name for isolation.
 go run ./cmd/mcp-reliability doctor testdata/broken-propagation.jsonl
 ```
 

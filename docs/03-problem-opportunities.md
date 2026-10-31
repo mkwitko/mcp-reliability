@@ -30,6 +30,14 @@ measured. Scale 1-5, higher is better for us on every axis:
 Rows 7 and 8 are scored as "problem exists, someone already solved it", so low differentiation and
 competition scores are the point.
 
+## Status after validation (2026-10-30)
+
+- Candidate 1: built; 16 rules; 14 fixtures; see `docs/compatibility-report.md`.
+- Candidate 2: built for go-sdk, Python SDK 2.3.0, openllmetry 0.62.4 and mcp-otel-go v0.2.1.
+- Candidates 3 and 5: the gaps are reproduced from fixtures (`docs/research/mcp-otel-go-validation.md`, `docs/research/openllmetry-validation.md`); drafts in `docs/upstream/`, not sent.
+- Candidate 4: drafted in `docs/upstream/conformance-traceparent-scenario.md`; the only MUST in the spec is the format of the reserved keys when present.
+- Candidate 8: the Python SDK server side is solved; the client side has real gaps (`docs/upstream/python-sdk.md`). Demand score for "error representation drift" would now be 4, not 3: every library tested gets some error-representation finding, while propagation is correct in the official SDK.
+
 ## Rationale
 
 **1. `doctor` linter.** No tool checks client/server trace sharing, parent presence, orphan spans or
