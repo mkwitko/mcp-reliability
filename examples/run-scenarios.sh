@@ -17,10 +17,10 @@ scenario() { # name server-flags client-flags
   # The exporter holds the file open, so restart the collector per scenario
   # instead of deleting the file underneath it.
   $COMPOSE down >/dev/null 2>&1 || true
-  rm -f "$OUT/traces.jsonl"
+  rm -f "$OUT/traces.jsonl" "testdata/$name.wire.jsonl"
   $COMPOSE up -d >/dev/null 2>&1
   sleep 3
-  "$BIN" -role server $sflags &
+  "$BIN" -role server -capture "testdata/$name.wire.jsonl" $sflags &
   local pid=$!
   sleep 1
   "$BIN" -role client $cflags
@@ -35,3 +35,4 @@ scenario broken-propagation "" "-break-propagation"
 scenario broken-error-type "-break-error-type" ""
 scenario leaked-arguments "-leak-arguments" ""
 scenario missing-method-attr "-drop-method-attr" ""
+scenario bad-traceparent "" "-bad-traceparent"

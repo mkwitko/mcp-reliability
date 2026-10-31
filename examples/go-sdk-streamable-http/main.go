@@ -19,7 +19,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
@@ -42,7 +44,28 @@ var (
 	breakErrorType   = flag.Bool("break-error-type", false, "server: omit error.type and leave status Unset on failed tool calls")
 	leakArguments    = flag.Bool("leak-arguments", false, "server: record raw tool arguments as gen_ai.tool.call.arguments")
 	dropMethodAttr   = flag.Bool("drop-method-attr", false, "server: omit mcp.method.name")
+	badTraceparent   = flag.Bool("bad-traceparent", false, "client: send a malformed _meta.traceparent")
+	capturePath      = flag.String("capture", "", "server: append received {method,_meta} JSON lines to this file")
 )
+
+var captureMu sync.Mutex
+
+// capture appends one wire record per received message. The doctor's -wire
+// flag reads this format to check SEP-414 _meta formats.
+func capture(method string, meta map[string]any) {
+	if *capturePath == "" {
+		return
+	}
+	captureMu.Lock()
+	defer captureMu.Unlock()
+	f, err := os.OpenFile(*capturePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		log.Printf("capture: %v", err)
+		return
+	}
+	defer f.Close()
+	_ = json.NewEncoder(f).Encode(map[string]any{"method": method, "_meta": meta})
+}
 
 // metaCarrier adapts params._meta to the OTel TextMapCarrier interface.
 type metaCarrier map[string]any
@@ -74,6 +97,20 @@ func toolCall(req mcp.Request) (name string, args any, ok bool) {
 	return "", nil, false
 }
 
+// params returns the request params, treating a typed-nil pointer as absent.
+// go-sdk v1.8.0 hands middleware a typed-nil *InitializedParams for
+// notifications sent without params, and calling GetMeta on it panics.
+func params(req mcp.Request) mcp.Params {
+	p := req.GetParams()
+	if p == nil {
+		return nil
+	}
+	if v := reflect.ValueOf(p); v.Kind() == reflect.Pointer && v.IsNil() {
+		return nil
+	}
+	return p
+}
+
 func spanName(method string, req mcp.Request) string {
 	if name, _, ok := toolCall(req); ok && method == "tools/call" {
 		return method + " " + name
@@ -98,13 +135,21 @@ func baseAttrs(method string, req mcp.Request) []attribute.KeyValue {
 	return attrs
 }
 
+var callerError = map[string]bool{"-32700": true, "-32600": true, "-32601": true, "-32602": true, "-32002": true}
+
 // recordOutcome maps the two MCP failure shapes onto the span: JSON-RPC errors
 // (err != nil) and tool execution errors (CallToolResult.IsError).
 func recordOutcome(span trace.Span, res mcp.Result, err error) {
 	var werr *jsonrpc.Error
 	switch {
 	case errors.As(err, &werr):
-		span.SetAttributes(attribute.String("rpc.response.status_code", strconv.FormatInt(werr.Code, 10)))
+		code := strconv.FormatInt(werr.Code, 10)
+		span.SetAttributes(attribute.String("rpc.response.status_code", code))
+		// semconv: -32700/-32600/-32601/-32602/-32002 are caller errors and
+		// SHOULD NOT be considered failures of this span.
+		if callerError[code] {
+			return
+		}
 		if !*breakErrorType {
 			span.SetAttributes(attribute.String("error.type", strconv.FormatInt(werr.Code, 10)))
 			span.SetStatus(codes.Error, werr.Message)
@@ -128,12 +173,15 @@ func clientMiddleware(tracer trace.Tracer) mcp.Middleware {
 			ctx, span := tracer.Start(ctx, spanName(method, req),
 				trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(baseAttrs(method, req)...))
 			defer span.End()
-			if p := req.GetParams(); p != nil && !*breakPropagation {
+			if p := params(req); p != nil && !*breakPropagation {
 				m := p.GetMeta()
 				if m == nil {
 					m = map[string]any{}
 				}
 				otel.GetTextMapPropagator().Inject(ctx, metaCarrier(m))
+				if *badTraceparent {
+					m["traceparent"] = "not-a-w3c-traceparent"
+				}
 				p.SetMeta(m)
 			}
 			res, err := next(ctx, method, req)
@@ -146,8 +194,11 @@ func clientMiddleware(tracer trace.Tracer) mcp.Middleware {
 func serverMiddleware(tracer trace.Tracer) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
-			if p := req.GetParams(); p != nil && p.GetMeta() != nil {
-				ctx = otel.GetTextMapPropagator().Extract(ctx, metaCarrier(p.GetMeta()))
+			if p := params(req); p != nil {
+				capture(method, p.GetMeta())
+				if p.GetMeta() != nil {
+					ctx = otel.GetTextMapPropagator().Extract(ctx, metaCarrier(p.GetMeta()))
+				}
 			}
 			ctx, span := tracer.Start(ctx, spanName(method, req),
 				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(baseAttrs(method, req)...))
