@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Added
+- `doctor -wire <capture.jsonl>`: wire-format checks MCP-PROP-003 (SEP-414 `_meta.traceparent` MUST be W3C formatted, FAIL) and MCP-PROP-004 (no traceparent on the wire, INFO). Harness flag `-capture` writes the capture; `-bad-traceparent` client flag and `bad-traceparent` fixture.
+- `doctor` accepts several trace files and `-` for stdin.
+- Rules MCP-ERR-004 (status `Ok` on success, FAIL per Recording Errors MUST) and MCP-ERR-005 (caller-error JSON-RPC codes recorded as failures, WARN per mcp.md footnote 5). Both found real cases: our own harness marked unknown tools as errors, and so does the Python SDK 2.3.0 client.
+- Rules MCP-SEM-003 (span name format, WARN) and MCP-SEM-004 (missing `gen_ai.operation.name`, INFO), both true positives against the official Python SDK 2.3.0 client.
+- Python SDK v2 scenario (`examples/python-sdk-streamable-http`, uv) and three fixtures: Python default, Go client to Python server, Python client to Go server. Report in `docs/research/python-sdk-v2-validation.md`.
+
+### Changed
+- MCP-PROP-001 pairs client and server spans by `jsonrpc.request.id` when present, falling back to tool name. The Python client sets no tool name, which hid a broken-propagation case.
+
+### Fixed
+- Go harness marked `-32602` (unknown tool) as a span failure; semconv says caller-error codes SHOULD NOT be errors. MCP-ERR-001 no longer treats those codes as failures either.
+- Go harness panicked on a typed-nil params pointer for `notifications/initialized` sent without params (go-sdk v1.8.0 behaviour).
+- CLI tests (`cmd/mcp-reliability/main_test.go`); fixture tests now pin severity and finding counts per rule.
+- goreleaser config and tag-triggered release workflow (draft releases with checksums and SBOM).
+- GitHub labels, Discussions enabled.
+
 ## [0.0.1] - 2026-10-30
 
 ### Added

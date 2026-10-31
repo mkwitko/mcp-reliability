@@ -116,10 +116,21 @@ Source URLs: semconv = `https://github.com/open-telemetry/semantic-conventions-g
 | MCP-PROP-001 | Root SERVER MCP span; a CLIENT span with same method and tool name exists in another trace, none in the same trace | WARN | semconv: instrumentation SHOULD inject/extract context via `params._meta`; SEP-414 reserves the keys | Same-name calls from unrelated clients in the file; matching is by (method, tool) only |
 | MCP-PROP-002 | MCP span with a parent id not present in the file | INFO | semconv span model | Parent unsampled, dropped, or exported elsewhere (this is why it is INFO) |
 | MCP-PRIV-001 | Any span carries `gen_ai.tool.call.arguments`, `gen_ai.tool.call.result`, `gen_ai.input.messages`, or `gen_ai.output.messages` | WARN | semconv marks these Opt-In and sensitive | Intended in dev/test environments |
+| MCP-ERR-004 | MCP span with status `Ok` | FAIL | Recording Errors: "Span Status Code MUST be left unset if the instrumented operation has ended without any errors" | None; the document is Development status |
+| MCP-ERR-005 | MCP span with `rpc.response.status_code` in {-32700, -32600, -32601, -32602, -32002} and status `Error` or `error.type` present | WARN | mcp.md footnote [5]: these codes "SHOULD NOT be considered errors" | An application that treats unknown tools as its own failure |
+| MCP-SEM-003 | MCP span whose name is neither `{mcp.method.name}` nor `{mcp.method.name} {target}` | WARN | semconv: "Span name SHOULD follow the format `{mcp.method.name} {target}`" | None known; the Python SDK client's `MCP send {method}` names are a true positive |
+| MCP-SEM-004 | `tools/call` span without `gen_ai.operation.name` | INFO | semconv: Recommended, "SHOULD be set to execute_tool when the operation describes a tool call" | None |
+| MCP-PROP-003 (wire) | Captured `_meta.traceparent` is not a string or does not match `^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$` with non-zero ids; `tracestate`/`baggage` not strings | FAIL | SEP-414: "When present, their values MUST follow W3C Trace Context and W3C Baggage formats" | Capture produced by a proxy that rewrites `_meta` |
+| MCP-PROP-004 (wire) | Captured requests with no `_meta.traceparent` | INFO | SEP-414 reserves the keys; propagation itself is not required | Clients that intentionally do not trace |
+
+Wire rules live in `internal/rules/wire.go` and take `[]wire.Message` from `internal/wire` (newline-delimited `{"method","_meta"}` records). They run only when `doctor -wire <file>` is given.
 
 Fixture coverage: SEM-001, ERR-001, ERR-003, PROP-001, PRIV-001 have a live-captured fixture. SEM-002, ERR-002, PROP-002 are covered by synthetic spans in `TestSyntheticRules`. A `_meta.traceparent` format check (SEP-414 MUST) is not implemented: spans do not carry the raw `_meta` value under any semconv attribute, so it needs a wire capture (see limitations).
 
 ## 7. Input format
+
+Two inputs. The trace file is required; the wire capture is optional and only feeds MCP-PROP-003/004.
+
 
 Newline-delimited OTLP JSON as written by the Collector `fileexporter` (ADR-0003): one `ExportTraceServiceRequest` per line.
 

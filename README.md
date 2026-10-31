@@ -77,8 +77,24 @@ Then run `mcp-reliability doctor traces.jsonl`. Trace files can contain sensitiv
 | MCP-PROP-001 | WARN | Server span is a trace root although a client span for the same call exists: context not propagated via `_meta` |
 | MCP-PROP-002 | INFO | Parent span id not present in the file |
 | MCP-PRIV-001 | WARN | Opt-in payload attributes (tool arguments/results, messages) are present |
+| MCP-ERR-004 | FAIL | Span status is `Ok`; status MUST stay Unset on success |
+| MCP-ERR-005 | WARN | Caller-error JSON-RPC code (-32700/-32600/-32601/-32602/-32002) recorded as a failure |
+| MCP-SEM-003 | WARN | Span name does not follow `{mcp.method.name} {target}` |
+| MCP-SEM-004 | INFO | `tools/call` span lacks `gen_ai.operation.name=execute_tool` (Recommended) |
+| MCP-PROP-003 | FAIL | `_meta.traceparent` / `tracestate` / `baggage` on the wire do not follow the W3C format (SEP-414 MUST). Needs `-wire` |
+| MCP-PROP-004 | INFO | Captured requests carry no `_meta.traceparent` at all. Needs `-wire` |
 
 Condition details, quoted normative text, and false-positive risks: `docs/06-architecture.md`. Rules without a live fixture (SEM-002, ERR-002, PROP-002) are covered by synthetic-span unit tests.
+
+## Wire checks (`-wire`)
+
+Spans never carry the raw `_meta` values, so the SEP-414 format rule needs a second input: a newline-delimited capture of received messages, one `{"method": ..., "_meta": {...}}` object per line. The Go harness writes it with `-capture file`; a proxy or SDK hook can emit the same shape.
+
+```sh
+go run ./cmd/mcp-reliability doctor -wire testdata/bad-traceparent.wire.jsonl testdata/bad-traceparent.jsonl
+```
+
+`doctor` also accepts several trace files, or `-` to read one from stdin.
 
 ## Regenerate fixtures
 

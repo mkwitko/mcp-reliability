@@ -81,11 +81,8 @@ For every PR, the reviewer (human or AI) checks:
 - Record versions in docs when reporting results (Go, go-sdk, pdata, collector image). `docs/04-technical-feasibility.md` "PoC results" is the model.
 - A claim about a third-party library needs a command or trace that reproduces it.
 
-## Release (later)
+## Release
 
-Not done. Planned for M1/M2 (`docs/07-roadmap.md`):
-- goreleaser for cross-platform binaries.
-- SHA-256 checksums file.
-- SBOM (SPDX or CycloneDX) attached to releases.
-- Optionally signed artifacts.
-- Install instructions in the README once the first tag exists.
+- Tags `vX.Y.Z` trigger `.github/workflows/release.yml`, which runs goreleaser (`.goreleaser.yaml`): linux/darwin/windows on amd64/arm64, `CGO_ENABLED=0`, SHA-256 `checksums.txt`, SPDX SBOM per archive, release created as a **draft** for the maintainer to review and publish.
+- Only the maintainer tags. `v0.0.1` was tagged before this workflow existed, so it has no binaries.
+- Artifact signing (cosign) is not set up; add it before telling anyone to trust release binaries.

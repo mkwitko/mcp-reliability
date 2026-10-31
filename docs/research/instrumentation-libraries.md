@@ -164,7 +164,7 @@ Practical gaps that break "same field" interop:
 1. Missing `tracestate`/`baggage`: openllmetry client writes only `traceparent`; opentel-mcp reads `traceparent`+`tracestate` but not `baggage` (extract.js).
 2. No-op default propagator: mcp-otel-go documents that the OTel global propagator defaults to no-op, so servers that never call `otel.SetTextMapPropagator` extract nothing. The same applies to any library that relies on the global propagator (openinference, openllmetry server path). HYPOTHESIS for the Python/JS ones (standard OTel behavior, not tested here); CONFIRMED comment in mcp-otel-go.
 3. Client injection skipped (openllmetry #4374) or never present (mcp-otel-go, opentel-mcp).
-4. Notifications: only AmirK-S injects/extracts for notifications (`instrumentation.ts` lines 462-490 and `test/notifications.test.ts`); mcp-otel-go explicitly skips four notification methods. The OTel semconv says context should be injected "when creating a request or notification".
+4. Notifications: only AmirK-S injects/extracts for notifications (`instrumentation.ts` lines 462-490 and `test/notifications.test.ts`); mcp-otel-go instruments notifications by default; only its opt-in `DefaultProtocolFilter` drops nine methods, four of them notifications (corrected 2026-10-30, see docs/upstream/mcp-otel-go.md). The OTel semconv says context should be injected "when creating a request or notification".
 
 ## 4. Semantic conventions follow-through
 

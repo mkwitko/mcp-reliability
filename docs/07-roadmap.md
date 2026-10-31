@@ -27,7 +27,7 @@ Exit criteria:
 
 ## M3: Upstream PRs
 Candidate PRs from research (each only if the doctor evidence supports it):
-1. mcp-otel-go: client-side inject (currently server extract only).
+1. mcp-otel-go: client-side inject (server extract only today); span status set to `Ok` on success (semconv MUST leave it unset); `error.type` holding Go type names instead of `tool_error`/JSON-RPC codes; caller-error codes marked as failures. Drafts in `docs/upstream/mcp-otel-go.md`.
 2. traceloop/openllmetry #4374: client injection skipped when `params.meta` is None.
 3. MCP conformance suite: a `_meta.traceparent` scenario (suite has no telemetry tests today).
 4. opentelemetry-go-contrib #7616: MCP instrumentation proposal (open, idle since 2025-09).

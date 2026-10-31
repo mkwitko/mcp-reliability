@@ -133,7 +133,7 @@ staticcheck (clean).
 
 Lessons that changed the code:
 
-- The Go SDK hands the server `*mcp.CallToolParamsRaw`, not `*mcp.CallToolParams`.
+- The Go SDK hands the server `*mcp.CallToolParamsRaw`, not `*mcp.CallToolParams` (our hand-rolled harness missed this; mcp-otel-go handles both, verified 2026-10-30 in `mcpotel/spans.go:66-74`).
   Middleware that type-asserts only the client type silently loses the tool name.
   The doctor caught this in the harness itself (MCP-SEM-002 on the healthy run).
 - A tool `isError` result with no `error.type` and status Unset is invisible from
