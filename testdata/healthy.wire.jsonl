@@ -1,0 +1,6 @@
+{"_meta":{"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"example-client","version":"0.0.1"},"io.modelcontextprotocol/protocolVersion":"2026-07-28","traceparent":"00-0b471528f9e92a93e1d361e63717ce7e-3970978cd979b937-01"},"method":"server/discover"}
+{"_meta":{"traceparent":"00-d212bdecf0f1604c637ce389ef0220c7-5cb6e432ab32a16e-01"},"method":"initialize"}
+{"_meta":{"traceparent":"00-679ad096701dae579f2af6924d977159-7fd478f24b9dade7-01"},"method":"notifications/initialized"}
+{"_meta":{"traceparent":"00-90d834b49353eba5d0bb00b9425ccc07-e28463855eb38721-01"},"method":"tools/call"}
+{"_meta":{"traceparent":"00-90d834b49353eba5d0bb00b9425ccc07-c1af13eb9e5e930d-01"},"method":"tools/call"}
+{"_meta":{"traceparent":"00-90d834b49353eba5d0bb00b9425ccc07-3869a786a3b2849f-01"},"method":"tools/call"}

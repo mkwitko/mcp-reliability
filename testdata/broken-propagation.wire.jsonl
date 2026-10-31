@@ -1,0 +1,6 @@
+{"_meta":{"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"example-client","version":"0.0.1"},"io.modelcontextprotocol/protocolVersion":"2026-07-28"},"method":"server/discover"}
+{"_meta":null,"method":"initialize"}
+{"_meta":null,"method":"notifications/initialized"}
+{"_meta":null,"method":"tools/call"}
+{"_meta":null,"method":"tools/call"}
+{"_meta":null,"method":"tools/call"}

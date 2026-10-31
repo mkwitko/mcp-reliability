@@ -1,0 +1,6 @@
+{"_meta":{"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"example-client","version":"0.0.1"},"io.modelcontextprotocol/protocolVersion":"2026-07-28","traceparent":"not-a-w3c-traceparent"},"method":"server/discover"}
+{"_meta":{"traceparent":"not-a-w3c-traceparent"},"method":"initialize"}
+{"_meta":{"traceparent":"not-a-w3c-traceparent"},"method":"notifications/initialized"}
+{"_meta":{"traceparent":"not-a-w3c-traceparent"},"method":"tools/call"}
+{"_meta":{"traceparent":"not-a-w3c-traceparent"},"method":"tools/call"}
+{"_meta":{"traceparent":"not-a-w3c-traceparent"},"method":"tools/call"}
