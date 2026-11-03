@@ -5,10 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
-- Rule MCP-COV-001 (INFO): file has spans but none looks like MCP, so "no findings" is not a pass.
-- docs/11-code-tour.md: file-by-file walk of one `doctor` run for newcomers.
+## [0.1.0] - 2026-11-03
+
+First tagged release with the full initial rule set (17 rules), 18 fixtures from five SDKs and libraries, and the compatibility report. Pre-alpha: rule ids are stable, severities and messages may change.
 
 ### Added
+- Rule MCP-COV-001 (INFO): file has spans but none looks like MCP, so "no findings" is not a pass.
+- `docs/11-code-tour.md`: file-by-file walk of one `doctor` run for newcomers.
 - `doctor -wire <capture.jsonl>`: wire-format checks MCP-PROP-003 (SEP-414 `_meta.traceparent` MUST be W3C formatted, FAIL) and MCP-PROP-004 (no traceparent on the wire, INFO). Harness flag `-capture` writes the capture; `-bad-traceparent` client flag and `bad-traceparent` fixture.
 - `doctor` accepts several trace files and `-` for stdin.
 - `make report` renders `docs/compatibility-report.md` from the fixtures (M2 exit criterion).

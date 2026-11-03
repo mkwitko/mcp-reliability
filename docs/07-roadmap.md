@@ -10,7 +10,7 @@ Exit criteria, as met:
 - `healthy.jsonl` produces zero findings.
 - Each rule cites its source URL.
 
-## M1: v0.1 (in progress; status 2026-10-30)
+## M1: v0.1 (done 2026-11-03, tag v0.1.0)
 Done so far: `-wire` input with MCP-PROP-003/004; `-weaver-json` export; stdin and multi-file; rules MCP-SEM-003/004, MCP-ERR-004/005; PROP-001 pairs by `jsonrpc.request.id`; CLI tests; severity-pinned fixture tests; goreleaser and release workflow; GitHub labels and Discussions.
 Scope: `doctor` with the full initial rule set, go-sdk scenario (`examples/go-sdk-streamable-http` with the three failure flags), `examples/collector`, fixtures, CI.
 Exit criteria:
@@ -19,8 +19,8 @@ Exit criteria:
 - Scenario regenerates the fixtures from the documented command.
 - Tagged v0.1.0 with changelog and README quick start that actually works.
 
-## M2: Python and TS scenarios, compatibility report (Python part done 2026-10-30)
-Done: Python SDK 2.3.0 scenario with three fixtures (Python only, Go client to Python server, Python client to Go server). Propagation works by default and across SDKs; doctor finds 10 WARN / 3 INFO on the Python client (names, missing tool name, isError ignored, -32602 as error). TypeScript SDK waits on typescript-sdk PR #3115 (still open 2026-10-30).
+## M2: Python and TS scenarios, compatibility report (done 2026-11-03)
+Done: Python SDK 2.3.0 scenario with three fixtures (Python only, Go client to Python server, Python client to Go server). Propagation works by default and across SDKs; doctor finds 10 WARN / 3 INFO on the Python client (names, missing tool name, isError ignored, -32602 as error). TypeScript scenario done 2026-11-03: published SDK 1.32.2 emits no MCP spans; a local build of typescript-sdk PR #3115 (sha 5a07386) propagates but marks -32602 as an error on the client (`docs/research/typescript-sdk-validation.md`).
 Scope: Python and TS SDK scenarios (candidates from research: openllmetry, openinference, official Python SDK), compatibility matrix of libraries vs. rules.
 Exit criteria:
 - At least 2 non-Go scenarios with fixtures.

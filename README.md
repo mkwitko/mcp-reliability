@@ -121,7 +121,7 @@ make check   # gofmt, vet, test -race, staticcheck, govulncheck
 
 ## Status and roadmap
 
-M0 (PoC) is done. The next steps are a first tagged release and scenarios for the Python and TypeScript SDKs. See `docs/07-roadmap.md`. Known limits are listed in `docs/06-architecture.md`, section 12.
+M0 (PoC), M1 (v0.1.0, 2026-11-03), M2 (Python and TypeScript scenarios, compatibility report) and M4 (weaver export) are done. Next: upstream issues and PRs (M3). See `docs/07-roadmap.md`. Known limits are listed in `docs/06-architecture.md`, section 12.
 
 ## Non-goals
 
