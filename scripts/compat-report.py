@@ -15,6 +15,8 @@ META = {
     "broken-error-type": ("go-sdk harness", "server omits error.type on isError"),
     "leaked-arguments": ("go-sdk harness", "server records gen_ai.tool.call.arguments"),
     "missing-method-attr": ("go-sdk harness", "server omits mcp.method.name"),
+    "healthy-stdio": ("go-sdk v1.8.0 client spawning the server over stdio", "baseline over stdio"),
+    "broken-propagation-stdio": ("go-sdk harness over stdio", "client skips _meta inject"),
     "bad-traceparent": ("go-sdk harness", "client sends malformed _meta.traceparent (needs -wire)"),
     "python-sdk-default": ("mcp 2.3.0 (Python) client+server, built-in OTel", "SDK defaults"),
     "cross-go-client-python-server": ("go-sdk harness client -> mcp 2.3.0 server", "cross-SDK propagation"),

@@ -3,10 +3,12 @@ package rules
 import (
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
+	"github.com/mkwitko/mcp-reliability/internal/metrics"
 	"github.com/mkwitko/mcp-reliability/internal/trace"
 	"github.com/mkwitko/mcp-reliability/internal/wire"
 )
@@ -20,6 +22,7 @@ var severityOf = map[string]Severity{
 	"MCP-SEM-001": Fail, "MCP-SEM-002": Warn, "MCP-SEM-003": Warn, "MCP-SEM-004": Info,
 	"MCP-ERR-001": Warn, "MCP-ERR-002": Warn, "MCP-ERR-003": Warn, "MCP-ERR-004": Fail, "MCP-ERR-005": Warn, "MCP-ERR-006": Warn,
 	"MCP-PROP-001": Warn, "MCP-PROP-002": Info, "MCP-PROP-003": Fail, "MCP-PROP-004": Info, "MCP-PROP-005": Info,
+	"MCP-MET-001": Fail, "MCP-MET-002": Warn, "MCP-MET-003": Info,
 	"MCP-PRIV-001": Warn, "MCP-PRIV-002": Info, "MCP-PROP-006": Info, "MCP-COV-001": Info,
 }
 
@@ -30,23 +33,25 @@ var severityOf = map[string]Severity{
 func TestFixtures(t *testing.T) {
 	cases := map[string]map[string]int{
 		"healthy":                           {},
+		"healthy-stdio":                     {},
+		"broken-propagation-stdio":          {"MCP-PROP-001": 4, "MCP-PROP-004": 1},
 		"broken-propagation":                {"MCP-PROP-001": 6, "MCP-PROP-004": 1},
 		"broken-error-type":                 {"MCP-ERR-003": 1},
 		"leaked-arguments":                  {"MCP-PRIV-001": 3},
-		"missing-method-attr":               {"MCP-SEM-001": 5},
+		"missing-method-attr":               {"MCP-MET-001": 1, "MCP-SEM-001": 5},
 		"bad-traceparent":                   {"MCP-PROP-001": 6, "MCP-PROP-003": 6},
-		"python-sdk-default":                {"MCP-ERR-003": 2, "MCP-SEM-002": 3, "MCP-SEM-003": 5, "MCP-SEM-004": 3},
-		"cross-go-client-python-server":     {},
-		"openllmetry-default":               {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
-		"openllmetry-with-meta":             {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
-		"openllmetry-legacy-transport":      {"MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 15},
-		"mcp-otel-go-default":               {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-PROP-005": 1, "MCP-SEM-004": 3},
-		"mcp-otel-go-client-inject":         {"MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-SEM-004": 3},
-		"cross-python-client-go-server":     {"MCP-SEM-003": 6, "MCP-SEM-002": 3, "MCP-SEM-004": 3, "MCP-ERR-003": 2, "MCP-ERR-005": 1},
+		"python-sdk-default":                {"MCP-MET-003": 1, "MCP-ERR-003": 2, "MCP-SEM-002": 3, "MCP-SEM-003": 5, "MCP-SEM-004": 3},
+		"cross-go-client-python-server":     {"MCP-MET-003": 1},
+		"openllmetry-default":               {"MCP-MET-003": 1, "MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
+		"openllmetry-with-meta":             {"MCP-MET-003": 1, "MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 10},
+		"openllmetry-legacy-transport":      {"MCP-MET-003": 1, "MCP-ERR-001": 2, "MCP-ERR-004": 3, "MCP-PRIV-002": 15, "MCP-PROP-006": 1, "MCP-SEM-001": 15},
+		"mcp-otel-go-default":               {"MCP-MET-003": 1, "MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-PROP-005": 1, "MCP-SEM-004": 3},
+		"mcp-otel-go-client-inject":         {"MCP-MET-003": 1, "MCP-ERR-004": 4, "MCP-ERR-006": 1, "MCP-SEM-004": 3},
+		"cross-python-client-go-server":     {"MCP-MET-003": 1, "MCP-SEM-003": 6, "MCP-SEM-002": 3, "MCP-SEM-004": 3, "MCP-ERR-003": 2, "MCP-ERR-005": 1},
 		"typescript-sdk-default":            {"MCP-COV-001": 1},
-		"cross-go-client-typescript-server": {},
-		"cross-typescript-client-go-server": {"MCP-PROP-005": 1},
-		"typescript-sdk-pr3115":             {"MCP-ERR-003": 1, "MCP-ERR-005": 1},
+		"cross-go-client-typescript-server": {"MCP-MET-003": 1},
+		"cross-typescript-client-go-server": {"MCP-MET-003": 1, "MCP-PROP-005": 1},
+		"typescript-sdk-pr3115":             {"MCP-MET-003": 1, "MCP-ERR-003": 1, "MCP-ERR-005": 1},
 	}
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -58,6 +63,11 @@ func TestFixtures(t *testing.T) {
 				t.Fatal("no spans loaded")
 			}
 			findings := Run(spans)
+			points, err := metrics.LoadFile(filepath.Join("..", "..", "testdata", name+".jsonl"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			findings = append(findings, Metrics(points, spans)...)
 			if msgs, err := wire.LoadFile(filepath.Join("..", "..", "testdata", name+".wire.jsonl")); err == nil {
 				findings = append(findings, Wire(msgs)...)
 			}
@@ -146,6 +156,44 @@ func TestSyntheticRules(t *testing.T) {
 				if got[i] != c.want[i] {
 					t.Fatalf("got %v want %v", got, c.want)
 				}
+			}
+		})
+	}
+}
+
+func TestMetricRules(t *testing.T) {
+	pt := func(name, unit string, attrs map[string]string) metrics.Point {
+		return metrics.Point{Name: name, Unit: unit, Kind: "histogram", Attrs: attrs, Line: 1}
+	}
+	span := []trace.Span{{SpanID: "a", Name: "ping", Attrs: map[string]string{"mcp.method.name": "ping"}}}
+	cases := []struct {
+		name   string
+		points []metrics.Point
+		spans  []trace.Span
+		want   []string
+	}{
+		{"MET-001 operation metric without mcp.method.name", []metrics.Point{
+			pt("mcp.server.operation.duration", "s", map[string]string{}),
+		}, nil, []string{"MCP-MET-001"}},
+		{"session metric needs no mcp.method.name", []metrics.Point{
+			pt("mcp.client.session.duration", "s", map[string]string{}),
+		}, nil, nil},
+		{"MET-002 wrong unit", []metrics.Point{
+			pt("mcp.client.operation.duration", "ms", map[string]string{"mcp.method.name": "ping"}),
+		}, nil, []string{"MCP-MET-002"}},
+		{"MET-003 spans but no MCP metric", []metrics.Point{
+			pt("http.server.request.duration", "s", nil),
+		}, span, []string{"MCP-MET-003"}},
+		{"no spans, no metrics: silent", nil, nil, nil},
+		{"conforming point", []metrics.Point{
+			pt("mcp.client.operation.duration", "s", map[string]string{"mcp.method.name": "ping"}),
+		}, span, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ids(Metrics(c.points, c.spans))
+			if strings.Join(got, ",") != strings.Join(c.want, ",") {
+				t.Fatalf("got %v want %v", got, c.want)
 			}
 		})
 	}

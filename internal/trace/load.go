@@ -9,6 +9,7 @@ package trace
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -60,6 +61,9 @@ func Load(r io.Reader) ([]Span, error) {
 		if len(b) == 0 {
 			continue
 		}
+		if isMetricsLine(b) {
+			continue // metrics share the file; package metrics reads them
+		}
 		td, err := um.UnmarshalTraces(b)
 		if err != nil {
 			return nil, fmt.Errorf("line %d: %w", line, err)
@@ -70,6 +74,17 @@ func Load(r io.Reader) ([]Span, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// isMetricsLine reports whether the line is an OTLP metrics export (top-level
+// "resourceMetrics" key); only the top-level keys are decoded.
+func isMetricsLine(b []byte) bool {
+	var top map[string]json.RawMessage
+	if json.Unmarshal(b, &top) != nil {
+		return false
+	}
+	_, ok := top["resourceMetrics"]
+	return ok
 }
 
 func flatten(td ptrace.Traces, line int) []Span {

@@ -21,6 +21,9 @@ func TestRun(t *testing.T) {
 		{[]string{"doctor", "-strict", "../../testdata/broken-propagation.jsonl"}, 1, "MCP-PROP-001"},
 		{[]string{"doctor", "-json", "../../testdata/healthy.jsonl"}, 0, "[]"},
 		{[]string{"doctor", "../../testdata/healthy.jsonl", "../../testdata/leaked-arguments.jsonl"}, 0, "MCP-PRIV-001"},
+		{[]string{"doctor", "../../testdata/healthy.jsonl"}, 0, "metric points: 12"},
+		{[]string{"doctor", "../../testdata/missing-method-attr.jsonl"}, 1, "MCP-MET-001"},
+		{[]string{"doctor", "../../testdata/python-sdk-default.jsonl"}, 0, "MCP-MET-003"},
 		{[]string{"doctor", "nope.jsonl"}, 2, ""},
 	}
 	for _, c := range cases {

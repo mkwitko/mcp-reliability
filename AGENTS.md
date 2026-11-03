@@ -98,6 +98,8 @@ Every external claim in docs or code comments needs: URL, what it says, and the 
 
 ## 9. Gotchas
 
+- The collector writes traces and metrics to the same file; `trace.Load` and `metrics.Load` each skip the other's lines. A new signal needs the same skip in both loaders.
+- Go harness metrics are exported every 1 s; the harness must call the provider `Shutdown` (it does, via `setupOTel`'s returned func) or the last interval is lost. In stdio mode the server flushes when the client closes stdin.
 - Go SDK server side sees `*mcp.CallToolParamsRaw`, client side `*mcp.CallToolParams`.
 - `go run` does not forward SIGINT; fixture generation uses a built binary.
 - The Collector fileexporter keeps its file open; restart it between scenarios.

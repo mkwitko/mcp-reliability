@@ -6,8 +6,11 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	go.opentelemetry.io/collector/pdata v1.70.0
 	go.opentelemetry.io/otel v1.47.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
+	go.opentelemetry.io/otel/metric v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/sdk/metric v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
 )
 
@@ -30,7 +33,6 @@ require (
 	go.opentelemetry.io/collector/featuregate v1.70.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
-	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.60.0 // indirect

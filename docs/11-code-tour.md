@@ -7,6 +7,7 @@ A guided read of the codebase for someone new to Go, OpenTelemetry, or MCP. It f
 ```
 cmd/mcp-reliability/main.go     entry point: flags, file loading, exit code
 internal/trace/load.go          OTLP JSON (NDJSON) -> []Span
+internal/metrics/load.go        OTLP JSON metric lines -> []Point
 internal/wire/wire.go           {method,_meta} capture -> []Message
 internal/rules/rules.go         the 16 span rules, Run(), Sort()
 internal/rules/wire.go          the 2 wire rules (traceparent format)

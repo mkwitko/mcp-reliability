@@ -63,7 +63,7 @@ service:
       exporters: [file]
 ```
 
-Then run `mcp-reliability doctor traces.jsonl`. Trace files can contain sensitive payloads; review them before sharing.
+Add the same `metrics` pipeline (`receivers: [otlp]`, `exporters: [file]`) to also capture MCP metrics in that file. Then run `mcp-reliability doctor traces.jsonl`; spans and `resourceMetrics` lines are both read from it (`metric points: N` in the report). Trace files can contain sensitive payloads; review them before sharing.
 
 ## Rules
 
@@ -82,6 +82,9 @@ Then run `mcp-reliability doctor traces.jsonl`. Trace files can contain sensitiv
 | MCP-ERR-006 | WARN | `error.type` holds a Go pointer type name instead of `tool_error` or the JSON-RPC code |
 | MCP-PROP-005 | INFO | All MCP SERVER spans are roots and the file has no MCP CLIENT span although another service is present |
 | MCP-PROP-006 | INFO | MCP-looking spans exist but none is CLIENT/SERVER with `mcp.method.name`; pairing checks could not run |
+| MCP-MET-001 | FAIL | an operation-duration metric data point lacks `mcp.method.name` (Required) |
+| MCP-MET-002 | WARN | an MCP metric has a unit other than `s` |
+| MCP-MET-003 | INFO | MCP spans exist but the file has no MCP metric; metric rules did not run |
 | MCP-COV-001 | INFO | spans loaded but none looks like MCP; no MCP rule ran |
 | MCP-PRIV-002 | INFO | Vendor attributes known to hold payloads (`traceloop.entity.*`, `mcp.response.value`); project heuristic |
 | MCP-SEM-003 | WARN | Span name does not follow `{mcp.method.name} {target}` |
@@ -103,7 +106,7 @@ go run ./cmd/mcp-reliability doctor -wire testdata/bad-traceparent.wire.jsonl te
 
 ## Regenerate fixtures
 
-The fixtures in `testdata/` come from a real Go SDK client and server (`examples/go-sdk-streamable-http`) with one injected defect each, captured through a local collector. Needs Docker.
+The fixtures in `testdata/` come from a real Go SDK client and server (`examples/go-sdk-streamable-http`) with one injected defect each, over Streamable HTTP and stdio, captured through a local collector. Needs Docker. See `examples/go-sdk-streamable-http/README.md`.
 
 ```sh
 make fixtures

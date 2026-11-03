@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
+### Added
+- Metrics input: `internal/metrics` loads `resourceMetrics` lines from the same file; `doctor` prints `metric points: N`. Rules MCP-MET-001 (operation-duration point without `mcp.method.name`, FAIL), MCP-MET-002 (unit not `s`, WARN), MCP-MET-003 (MCP spans but no MCP metric, INFO). Semconv extract: `docs/research/mcp-semconv-metrics.md`.
+- Collector config has a `metrics` pipeline to the same file; the Go harness exports `mcp.{client,server}.operation.duration`. Go fixtures regenerated with metric lines.
+- Go harness `-transport stdio` (client spawns the server, `-server-args`) and fixtures `healthy-stdio`, `broken-propagation-stdio`.
+- `ONLY=name,name examples/run-scenarios.sh` runs a subset of scenarios.
+
+### Changed
+- `report.Text` takes a metric point count. The 11 fixtures captured before the metrics pipeline (external SDKs, cross-SDK, openllmetry, mcp-otel-go) now also report MCP-MET-003 (INFO), since they carry no metrics.
+
 ## [0.1.0] - 2026-11-03
 
 First tagged release with the full initial rule set (17 rules), 18 fixtures from five SDKs and libraries, and the compatibility report. Pre-alpha: rule ids are stable, severities and messages may change.

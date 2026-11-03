@@ -7,6 +7,9 @@
 //
 //	go run . -role server [-break-error-type] [-leak-arguments] [-drop-method-attr]
 //	go run . -role client [-break-propagation]
+//
+// With -transport stdio the client spawns this binary as the server (extra
+// server flags go in -server-args); stdout is then the protocol channel.
 package main
 
 import (
@@ -18,9 +21,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,8 +34,11 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -45,6 +53,8 @@ var (
 	leakArguments    = flag.Bool("leak-arguments", false, "server: record raw tool arguments as gen_ai.tool.call.arguments")
 	dropMethodAttr   = flag.Bool("drop-method-attr", false, "server: omit mcp.method.name")
 	badTraceparent   = flag.Bool("bad-traceparent", false, "client: send a malformed _meta.traceparent")
+	transport        = flag.String("transport", "http", "http (Streamable HTTP) or stdio")
+	serverArgs       = flag.String("server-args", "", "client, stdio only: extra flags for the spawned server, space separated")
 	capturePath      = flag.String("capture", "", "server: append received {method,_meta} JSON lines to this file")
 )
 
@@ -138,40 +148,59 @@ func baseAttrs(method string, req mcp.Request) []attribute.KeyValue {
 var callerError = map[string]bool{"-32700": true, "-32600": true, "-32601": true, "-32602": true, "-32002": true}
 
 // recordOutcome maps the two MCP failure shapes onto the span: JSON-RPC errors
-// (err != nil) and tool execution errors (CallToolResult.IsError).
-func recordOutcome(span trace.Span, res mcp.Result, err error) {
+// (err != nil) and tool execution errors (CallToolResult.IsError). It returns
+// the outcome attributes so the duration metric can carry the same ones.
+func recordOutcome(span trace.Span, res mcp.Result, err error) (out []attribute.KeyValue) {
+	defer func() { span.SetAttributes(out...) }()
 	var werr *jsonrpc.Error
 	switch {
 	case errors.As(err, &werr):
 		code := strconv.FormatInt(werr.Code, 10)
-		span.SetAttributes(attribute.String("rpc.response.status_code", code))
+		out = append(out, attribute.String("rpc.response.status_code", code))
 		// semconv: -32700/-32600/-32601/-32602/-32002 are caller errors and
 		// SHOULD NOT be considered failures of this span.
 		if callerError[code] {
 			return
 		}
 		if !*breakErrorType {
-			span.SetAttributes(attribute.String("error.type", strconv.FormatInt(werr.Code, 10)))
+			out = append(out, attribute.String("error.type", code))
 			span.SetStatus(codes.Error, werr.Message)
 		}
 	case err != nil:
 		if !*breakErrorType {
-			span.SetAttributes(attribute.String("error.type", "_OTHER"))
+			out = append(out, attribute.String("error.type", "_OTHER"))
 			span.SetStatus(codes.Error, err.Error())
 		}
 	default:
 		if r, ok := res.(*mcp.CallToolResult); ok && r.IsError && !*breakErrorType {
-			span.SetAttributes(attribute.String("error.type", "tool_error"))
+			out = append(out, attribute.String("error.type", "tool_error"))
 			span.SetStatus(codes.Error, "tool returned isError")
 		}
 	}
+	return
+}
+
+// opDuration is mcp.{client,server}.operation.duration (Histogram, unit s).
+var opDuration metric.Float64Histogram
+
+// observe records one operation. The metric carries the same attributes as the
+// span except gen_ai.tool.call.arguments, which never belongs on a metric.
+func observe(ctx context.Context, start time.Time, base, outcome []attribute.KeyValue) {
+	attrs := make([]attribute.KeyValue, 0, len(base)+len(outcome))
+	for _, kv := range append(base, outcome...) {
+		if kv.Key != "gen_ai.tool.call.arguments" {
+			attrs = append(attrs, kv)
+		}
+	}
+	opDuration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(attrs...))
 }
 
 func clientMiddleware(tracer trace.Tracer) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+			start, base := time.Now(), baseAttrs(method, req)
 			ctx, span := tracer.Start(ctx, spanName(method, req),
-				trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(baseAttrs(method, req)...))
+				trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(base...))
 			defer span.End()
 			if p := params(req); p != nil && !*breakPropagation {
 				m := p.GetMeta()
@@ -185,7 +214,7 @@ func clientMiddleware(tracer trace.Tracer) mcp.Middleware {
 				p.SetMeta(m)
 			}
 			res, err := next(ctx, method, req)
-			recordOutcome(span, res, err)
+			observe(ctx, start, base, recordOutcome(span, res, err))
 			return res, err
 		}
 	}
@@ -200,28 +229,44 @@ func serverMiddleware(tracer trace.Tracer) mcp.Middleware {
 					ctx = otel.GetTextMapPropagator().Extract(ctx, metaCarrier(p.GetMeta()))
 				}
 			}
+			start, base := time.Now(), baseAttrs(method, req)
 			ctx, span := tracer.Start(ctx, spanName(method, req),
-				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(baseAttrs(method, req)...))
+				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(base...))
 			defer span.End()
 			res, err := next(ctx, method, req)
-			recordOutcome(span, res, err)
+			observe(ctx, start, base, recordOutcome(span, res, err))
 			return res, err
 		}
 	}
 }
 
-func setupOTel(ctx context.Context, service string) (*sdktrace.TracerProvider, error) {
+// setupOTel installs trace and metric providers and returns a shutdown func
+// that flushes both.
+func setupOTel(ctx context.Context, service string) (*sdktrace.TracerProvider, func(), error) {
 	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	mexp, err := otlpmetrichttp.New(ctx, otlpmetrichttp.WithInsecure())
+	if err != nil {
+		return nil, nil, err
 	}
 	res, _ := resource.Merge(resource.Default(), resource.NewSchemaless(semconv.ServiceName(service)))
 	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exp), sdktrace.WithResource(res))
 	otel.SetTracerProvider(tp)
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithResource(res),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(mexp, sdkmetric.WithInterval(time.Second))))
+	name := "mcp." + *role + ".operation.duration"
+	opDuration, err = mp.Meter("example/mcp-"+*role).Float64Histogram(name, metric.WithUnit("s"),
+		metric.WithDescription("Duration of an MCP request or notification."),
+		metric.WithExplicitBucketBoundaries(0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60, 120, 300))
+	if err != nil {
+		return nil, nil, err
+	}
 	// The global propagator is a no-op by default; without this line nothing is
 	// injected or extracted. This is a common real-world misconfiguration.
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	return tp, nil
+	return tp, func() { _ = tp.Shutdown(context.Background()); _ = mp.Shutdown(context.Background()) }, nil
 }
 
 type echoIn struct {
@@ -229,11 +274,11 @@ type echoIn struct {
 }
 
 func runServer(ctx context.Context) error {
-	tp, err := setupOTel(ctx, "example-mcp-server")
+	tp, shutdown, err := setupOTel(ctx, "example-mcp-server")
 	if err != nil {
 		return err
 	}
-	defer tp.Shutdown(context.Background())
+	defer shutdown()
 	tracer := tp.Tracer("example/mcp-server")
 
 	srv := mcp.NewServer(&mcp.Implementation{Name: "example-server", Version: "0.0.1"}, nil)
@@ -247,6 +292,10 @@ func runServer(ctx context.Context) error {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "boom"}}}, nil, nil
 		})
 
+	if *transport == "stdio" {
+		// stdout belongs to the protocol; log already writes to stderr.
+		return srv.Run(ctx, &mcp.StdioTransport{})
+	}
 	h := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, nil)
 	hs := &http.Server{Addr: *addr, Handler: h}
 	go func() {
@@ -261,16 +310,22 @@ func runServer(ctx context.Context) error {
 }
 
 func runClient(ctx context.Context) error {
-	tp, err := setupOTel(ctx, "example-mcp-client")
+	tp, shutdown, err := setupOTel(ctx, "example-mcp-client")
 	if err != nil {
 		return err
 	}
-	defer tp.Shutdown(context.Background())
+	defer shutdown()
 	tracer := tp.Tracer("example/mcp-client")
 
 	c := mcp.NewClient(&mcp.Implementation{Name: "example-client", Version: "0.0.1"}, nil)
 	c.AddSendingMiddleware(clientMiddleware(tracer))
-	sess, err := c.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: "http://" + *addr}, nil)
+	var t mcp.Transport = &mcp.StreamableClientTransport{Endpoint: "http://" + *addr}
+	if *transport == "stdio" {
+		cmd := exec.Command(os.Args[0], append([]string{"-role", "server", "-transport", "stdio"}, strings.Fields(*serverArgs)...)...)
+		cmd.Stderr = os.Stderr
+		t = &mcp.CommandTransport{Command: cmd}
+	}
+	sess, err := c.Connect(ctx, t, nil)
 	if err != nil {
 		return err
 	}

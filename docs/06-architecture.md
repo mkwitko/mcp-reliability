@@ -34,6 +34,7 @@ All state is in function arguments and return values. No globals except compiled
 |------|----------------|
 | `cmd/mcp-reliability` | CLI only: flags, exit codes. No analysis logic. |
 | `internal/trace` | OTLP JSON to flat spans. Knows nothing about MCP. |
+| `internal/metrics` | OTLP JSON metric lines to flat data points. Skips span lines (and `trace` skips metric lines). |
 | `internal/rules` | All checks. Knows MCP and semconv. No I/O. |
 | `internal/report` | Rendering findings. No analysis. |
 | `examples/go-sdk-streamable-http` | Scenario harness (separate `main`), produces fixtures. Not imported by anything. |
@@ -57,7 +58,17 @@ type Span struct {
 }
 func (s Span) Attr(key string) (string, bool)
 func LoadFile(path string) ([]Span, error)
-func Load(r io.Reader) ([]Span, error)
+func Load(r io.Reader) ([]Span, error) // skips resourceMetrics lines
+
+// internal/metrics
+type Point struct {
+    Name, Unit, Kind string // Kind: histogram, counter (Sum), gauge
+    Service          string
+    Attrs            map[string]string
+    Line             int
+}
+func LoadFile(path string) ([]Point, error)
+func Load(r io.Reader) ([]Point, error) // skips lines without resourceMetrics
 
 // internal/rules
 type Severity int // Info=0, Warn=1, Fail=2; String() gives "INFO"/"WARN"/"FAIL"
@@ -69,9 +80,10 @@ type Finding struct {
     Ref      string   // URL of normative text
 }
 func Run(spans []trace.Span) []Finding
+func Metrics(points []metrics.Point, spans []trace.Span) []Finding // spans only for MCP-MET-003
 
 // internal/report
-func Text(w io.Writer, file string, nSpans int, findings []rules.Finding) (fails, warns, infos int)
+func Text(w io.Writer, file string, nSpans, nPoints int, findings []rules.Finding) (fails, warns, infos int)
 func JSON(w io.Writer, findings []rules.Finding) error // keys: rule, severity, message, spans, ref
 ```
 
@@ -122,6 +134,9 @@ Source URLs: semconv = `https://github.com/open-telemetry/semantic-conventions-g
 | MCP-ERR-006 | MCP span whose `error.type` starts with `*` | WARN | mcp.md footnote [1]: `tool_error` for tool results, the JSON-RPC code for protocol errors; exception class only as a fallback | None known; found on mcp-otel-go v0.2.1 (`*jsonrpc2.WireError`) |
 | MCP-PROP-005 | Every MCP SERVER span is a root, the file has spans from more than one service, and no MCP CLIENT span exists | INFO | semconv: instrumentation SHOULD inject via `params._meta`; without a client span the rule cannot pair, so it only points | A client that is deliberately not instrumented for MCP |
 | MCP-PROP-006 | `looksMCP` spans exist, none is CLIENT or SERVER with `mcp.method.name` | INFO | coverage signal, no normative text; prevents reading "no PROP findings" as a pass | None |
+| MCP-MET-001 | a data point of `mcp.client.operation.duration` or `mcp.server.operation.duration` has no `mcp.method.name` | FAIL | semconv metrics tables list `mcp.method.name` as `Required` for both (verified 2026-11-03, `docs/research/mcp-semconv-metrics.md`). The session-duration metrics have no Required attribute and are not checked | Instrumentation that records the method under another key |
+| MCP-MET-002 | an MCP metric has a unit other than `s` | WARN | the metric tables give unit (UCUM) `s`; a table cell, not a MUST | A pipeline that rescales units after export |
+| MCP-MET-003 | `looksMCP` spans exist but no `mcp.{client,server}.{operation,session}.duration` point is in the file | INFO | project heuristic; the semconv requirement level of the metrics is Recommended, so absence is not a violation. Explains that metric rules did not run | Metrics exported into a different file; SDKs that emit no metrics (the 11 fixtures captured before the metrics pipeline) |
 | MCP-COV-001 | spans loaded but none passes `looksMCP` | INFO | coverage signal, no normative text; prevents reading "no findings" as a pass for an SDK that emits no MCP spans (typescript-sdk 1.32.2) | A file that legitimately holds only non-MCP spans; the finding is informational |
 | MCP-PRIV-002 | Span carries `traceloop.entity.input/output`, `mcp.response.value` or `mcp.request.argument` | INFO | project heuristic (`vendorPayloadAttrs`), not a standard; Ref points at this table | Vendor attribute repurposed for non-payload data |
 | MCP-SEM-003 | MCP span whose name is neither `{mcp.method.name}` nor `{mcp.method.name} {target}` | WARN | semconv: "Span name SHOULD follow the format `{mcp.method.name} {target}`" | None known; the Python SDK client's `MCP send {method}` names are a true positive |
@@ -138,18 +153,18 @@ Fixture coverage: SEM-001, ERR-001, ERR-003, PROP-001, PRIV-001 have a live-capt
 Two inputs. The trace file is required; the wire capture is optional and only feeds MCP-PROP-003/004.
 
 
-Newline-delimited OTLP JSON as written by the Collector `fileexporter` (ADR-0003): one `ExportTraceServiceRequest` per line.
+Newline-delimited OTLP JSON as written by the Collector `fileexporter` (ADR-0003): one `ExportTraceServiceRequest` or `ExportMetricsServiceRequest` per line. A line is a metrics line when its top-level JSON object has a `resourceMetrics` key; `trace` skips those lines and `metrics` skips all others, so one file (the collector writes both pipelines to the same file) feeds both. `doctor` reads each input once into memory so stdin works.
 
 - Parsed with `ptrace.JSONUnmarshaler` from `go.opentelemetry.io/collector/pdata`, not `protojson`. pdata decodes the collector's own encoding exactly (hex trace/span ids, enum names). The cost is a heavy dependency; `protojson` with `go.opentelemetry.io/proto/otlp` is the documented fallback.
 - One JSON document per line. Pretty-printed or concatenated JSON is not supported. Blank lines are skipped.
 - Scanner buffer: 1 MiB initial, 64 MiB maximum per line. A longer line is a load error.
 - A parse error aborts the whole load with `line N: ...` (exit 2). There is no partial result.
 - Attribute values are flattened with `AsString()`: non-string scalars become their string form, maps and slices become JSON text.
-- Metrics and logs files are not supported.
+- Metrics: Histogram, Sum and Gauge points are flattened per data point (`metrics.Point`). Exponential histograms and summaries are skipped. Logs lines are not supported.
 
 ## 8. Scenario harness
 
-`examples/go-sdk-streamable-http/main.go` is one binary with `-role server|client`, built on the official Go SDK (v1.8.0) over Streamable HTTP, exporting OTLP/HTTP to a local collector. Instrumentation is hand-rolled middleware so no third-party MCP instrumentation is a dependency.
+`examples/go-sdk-streamable-http/main.go` is one binary with `-role server|client`, built on the official Go SDK (v1.8.0) over Streamable HTTP (`-transport http`, default) or stdio (`-transport stdio`: the client spawns the same binary as the server, extra server flags go in `-server-args`; stdout is the protocol channel), exporting spans and `mcp.{client,server}.operation.duration` (Histogram, `s`, 1 s export interval) via OTLP/HTTP to a local collector. Instrumentation is hand-rolled middleware so no third-party MCP instrumentation is a dependency.
 
 Shapes:
 - Client: `AddSendingMiddleware`. Starts a CLIENT span, injects trace context into `params._meta`.
@@ -178,7 +193,7 @@ The client calls tools `echo` (ok), `fail` (tool `isError`), and `missing` (JSON
 
 `internal/rules/rules_test.go` `TestFixtures` loads each `testdata/*.jsonl` and asserts the exact set of rule ids that fire. This catches both a rule that stops firing and one that starts firing too eagerly. Fixtures are captured from real runs, not hand-written, with one exception allowed: a minimal hand-built case for a rule no SDK can trigger.
 
-Current fixtures (13 spans each): `healthy`, `broken-propagation`, `broken-error-type`, `leaked-arguments`, `missing-method-attr`.
+Current go-sdk fixtures: `healthy`, `broken-propagation`, `broken-error-type`, `leaked-arguments`, `missing-method-attr`, `bad-traceparent` (Streamable HTTP) and `healthy-stdio`, `broken-propagation-stdio` (stdio, `-transport stdio`). These also hold metric lines (client and server `operation.duration`); the 11 fixtures captured before the metrics pipeline each fire MCP-MET-003 once.
 
 ## 10. Exit codes
 

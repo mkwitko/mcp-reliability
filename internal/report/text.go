@@ -10,8 +10,8 @@ import (
 )
 
 // Text writes a plain-text report. It returns the count per severity.
-func Text(w io.Writer, file string, nSpans int, findings []rules.Finding) (fails, warns, infos int) {
-	fmt.Fprintf(w, "MCP Observability Report\nfile: %s\nspans: %d\n\n", file, nSpans)
+func Text(w io.Writer, file string, nSpans, nPoints int, findings []rules.Finding) (fails, warns, infos int) {
+	fmt.Fprintf(w, "MCP Observability Report\nfile: %s\nspans: %d\nmetric points: %d\n\n", file, nSpans, nPoints)
 	if len(findings) == 0 {
 		fmt.Fprintln(w, "[PASS] no findings")
 	}

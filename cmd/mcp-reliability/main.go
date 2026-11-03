@@ -5,11 +5,13 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/mkwitko/mcp-reliability/internal/metrics"
 	"github.com/mkwitko/mcp-reliability/internal/report"
 	"github.com/mkwitko/mcp-reliability/internal/rules"
 	"github.com/mkwitko/mcp-reliability/internal/trace"
@@ -42,23 +44,34 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 
 	var spans []trace.Span
+	var points []metrics.Point
 	label := ""
 	for _, f := range fs.Args() {
+		// Read once: stdin cannot be rewound, and spans and metrics share the file.
 		var (
-			got []trace.Span
-			err error
+			data []byte
+			err  error
 		)
 		if f == "-" {
-			got, err = trace.Load(stdin)
+			data, err = io.ReadAll(stdin)
 			f = "<stdin>"
 		} else {
-			got, err = trace.LoadFile(f)
+			data, err = os.ReadFile(f)
+		}
+		var gotS []trace.Span
+		var gotP []metrics.Point
+		if err == nil {
+			gotS, err = trace.Load(bytes.NewReader(data))
+		}
+		if err == nil {
+			gotP, err = metrics.Load(bytes.NewReader(data))
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "doctor: %s: %v\n", f, err)
 			return 2
 		}
-		spans = append(spans, got...)
+		spans = append(spans, gotS...)
+		points = append(points, gotP...)
 		if label != "" {
 			label += ", "
 		}
@@ -81,7 +94,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 
-	findings := rules.Run(spans)
+	findings := append(rules.Run(spans), rules.Metrics(points, spans)...)
+	findings = rules.Sort(findings)
 	if *wireFile != "" {
 		msgs, err := wire.LoadFile(*wireFile)
 		if err != nil {
@@ -100,7 +114,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 		out = io.Discard
 	}
-	fails, warns, _ := report.Text(out, label, len(spans), findings)
+	fails, warns, _ := report.Text(out, label, len(spans), len(points), findings)
 	if fails > 0 || (*strict && warns > 0) {
 		return 1
 	}

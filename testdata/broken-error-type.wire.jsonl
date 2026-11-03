@@ -1,6 +1,6 @@
-{"_meta":{"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"example-client","version":"0.0.1"},"io.modelcontextprotocol/protocolVersion":"2026-07-28","traceparent":"00-4a64cbab710b732291210a2935ad325a-562361beaba5b303-01"},"method":"server/discover"}
-{"_meta":{"traceparent":"00-e6708e23a854aacaa12cc45a7da5c907-a67b2635af686313-01"},"method":"initialize"}
-{"_meta":{"traceparent":"00-6651ae73b42a860a9a9f4007a3dd68cf-9544a671041246ed-01"},"method":"notifications/initialized"}
-{"_meta":{"traceparent":"00-372350b47212056d87e71f5976b5b3c8-3190f9055ce0d4e1-01"},"method":"tools/call"}
-{"_meta":{"traceparent":"00-372350b47212056d87e71f5976b5b3c8-391d4752c99da4b4-01"},"method":"tools/call"}
-{"_meta":{"traceparent":"00-372350b47212056d87e71f5976b5b3c8-7d3927517393eaa7-01"},"method":"tools/call"}
+{"_meta":{"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"example-client","version":"0.0.1"},"io.modelcontextprotocol/protocolVersion":"2026-07-28","traceparent":"00-15f041946176155bc3ea41d10f39d6ce-bac0aa9284133a06-01"},"method":"server/discover"}
+{"_meta":{"traceparent":"00-3bdb805d3a81eebccdf16badf27bdac2-f95d091334aee515-01"},"method":"initialize"}
+{"_meta":{"traceparent":"00-01f95e12f1873e72ffaa45df21669ecc-d7af655246c3cb3e-01"},"method":"notifications/initialized"}
+{"_meta":{"traceparent":"00-bedd174fa36ca9570a4c094d7835a61f-b2f54f53f55536a8-01"},"method":"tools/call"}
+{"_meta":{"traceparent":"00-bedd174fa36ca9570a4c094d7835a61f-b5c44ebb21cc2e00-01"},"method":"tools/call"}
+{"_meta":{"traceparent":"00-bedd174fa36ca9570a4c094d7835a61f-d1aab860a808307c-01"},"method":"tools/call"}
