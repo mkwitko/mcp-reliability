@@ -27,7 +27,8 @@ Exit criteria:
 - Published compatibility report with library versions, commands to reproduce, and doctor output.
 - Every claim in the report reproducible from the repo.
 
-## M3: Upstream PRs
+## M3: Upstream PRs (issues opened 2026-11-03; waiting for maintainer feedback)
+Opened: python-sdk #3810 and #3811, mcp-otel-go #41 and #42, conformance #571, comments on openllmetry #4374 and typescript-sdk PR #3115. Links and texts: `docs/upstream/ready-to-send.md`.
 Candidate PRs from research (each only if the doctor evidence supports it):
 1. mcp-otel-go: client-side inject (server extract only today); span status set to `Ok` on success (semconv MUST leave it unset); `error.type` holding Go type names instead of `tool_error`/JSON-RPC codes; caller-error codes marked as failures. Drafts in `docs/upstream/mcp-otel-go.md`.
 2. traceloop/openllmetry #4374: client injection skipped when `params.meta` is None.

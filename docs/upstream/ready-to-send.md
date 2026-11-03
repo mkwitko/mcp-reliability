@@ -1,6 +1,12 @@
-# Ready-to-send upstream texts (NOT sent)
+# Upstream texts (sent 2026-11-03)
 
-Final bodies prepared 2026-11-03 from the research in this directory. Duplicate check done the same day (python-sdk #3174 closed, #3715 open and related; openllmetry #4374 open; mcp-otel-go has no issues; conformance has nothing on traceparent; typescript-sdk PR #3115 has no comment on -32602). Nothing below has been posted. Sending needs the maintainer of this repo.
+Final bodies prepared 2026-11-03 from the research in this directory. Duplicate check done the same day (python-sdk #3174 closed, #3715 open and related; openllmetry #4374 open; mcp-otel-go has no issues; conformance has nothing on traceparent; typescript-sdk PR #3115 has no comment on -32602). All seven were posted on 2026-11-03 with the maintainer's authorization:
+
+- python-sdk: https://github.com/modelcontextprotocol/python-sdk/issues/3810 (isError), https://github.com/modelcontextprotocol/python-sdk/issues/3811 (-32602)
+- openllmetry: https://github.com/traceloop/openllmetry/issues/4374#issuecomment-6603350479
+- mcp-otel-go: https://github.com/olgasafonova/mcp-otel-go/issues/41 (client inject), https://github.com/olgasafonova/mcp-otel-go/issues/42 (status Ok, error.type)
+- conformance: https://github.com/modelcontextprotocol/conformance/issues/571
+- typescript-sdk: https://github.com/modelcontextprotocol/typescript-sdk/pull/3115#issuecomment-6603352264
 
 ## python-sdk issue: client span ignores isError
 
